@@ -1,0 +1,42 @@
+project-name/
+├── cmd/
+│   └── server/
+│       └── main.go                 # Application entry point
+├── internal/
+│   ├── config/
+│   │   └── config.go              # Configuration management
+│   ├── domain/
+│   │   ├── entities/              # Business entities
+│   │   ├── repositories/          # Repository interfaces
+│   │   └── services/              # Service interfaces
+│   ├── infrastructure/
+│   │   ├── database/
+│   │   │   ├── migrations/        # Database migrations
+│   │   │   └── postgres.go        # Database connection
+│   │   ├── repositories/          # Repository implementations
+│   │   ├── external/              # External service clients
+│   │   └── middleware/            # HTTP middleware
+│   ├── application/
+│   │   ├── usecases/              # Business use cases
+│   │   └── dto/                   # Data transfer objects
+│   └── interfaces/
+│       ├── http/
+│       │   ├── handlers/          # HTTP handlers
+│       │   ├── routes/            # Route definitions
+│       │   └── middleware/        # HTTP-specific middleware
+│       └── grpc/                  # gRPC handlers (if needed)
+├── pkg/                           # Public packages
+│   ├── logger/
+│   ├── validator/
+│   └── utils/
+├── scripts/
+│   ├── migrate.sh
+│   └── build.sh
+├── deployments/
+│   ├── docker/
+│   │   └── Dockerfile
+│   └── k8s/                       # Kubernetes manifests
+├── docs/
+├── go.mod
+├── go.sum
+└── README.md
