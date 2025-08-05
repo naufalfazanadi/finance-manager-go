@@ -8,24 +8,24 @@ import (
 
 // Request DTOs
 type CreateUserRequest struct {
-	Email string `json:"email" validate:"required,email"`
-	Name  string `json:"name" validate:"required,min=2,max=100"`
-	Age   int    `json:"age" validate:"min=1,max=120"`
+	Email    string `json:"email" validate:"required,email" example:"user@example.com"`
+	Name     string `json:"name" validate:"required,min=2,max=100" example:"John Doe"`
+	Password string `json:"password" validate:"required,min=8,max=100" example:"password123"`
+	Role     string `json:"role" validate:"omitempty,oneof=user admin" example:"user"`
 }
 
 type UpdateUserRequest struct {
-	Name string `json:"name" validate:"omitempty,min=2,max=100"`
-	Age  int    `json:"age" validate:"omitempty,min=1,max=120"`
+	Name string `json:"name" validate:"omitempty,min=2,max=100" example:"John Doe Updated"`
 }
 
 // Response DTOs
 type UserResponse struct {
-	ID        uuid.UUID `json:"id"`
-	Email     string    `json:"email"`
-	Name      string    `json:"name"`
-	Age       int       `json:"age"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uuid.UUID `json:"id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Email     string    `json:"email" example:"user@example.com"`
+	Name      string    `json:"name" example:"John Doe"`
+	Role      string    `json:"role" example:"user"`
+	CreatedAt time.Time `json:"created_at" example:"2023-01-01T00:00:00Z"`
+	UpdatedAt time.Time `json:"updated_at" example:"2023-01-01T00:00:00Z"`
 }
 
 type UsersResponse struct {
@@ -45,7 +45,7 @@ func (ur *UsersResponse) GetPaginationMeta() *PaginationMeta {
 
 // Error Response
 type ErrorResponse struct {
-	Error   string                 `json:"error"`
-	Message string                 `json:"message"`
+	Error   string                 `json:"error" example:"Bad Request"`
+	Message string                 `json:"message" example:"Invalid input data"`
 	Details map[string]interface{} `json:"details,omitempty"`
 }

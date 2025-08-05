@@ -26,42 +26,45 @@ func Init(level string) error {
 	return nil
 }
 
-func Info(msg string, fields ...logrus.Fields) {
-	if len(fields) > 0 {
-		Logger.WithFields(fields[0]).Info(msg)
-	} else {
-		Logger.Info(msg)
-	}
+// Basic logging functions for simple use cases
+func Info(msg string) {
+	Logger.Info(msg)
 }
 
-func Error(msg string, fields ...logrus.Fields) {
-	if len(fields) > 0 {
-		Logger.WithFields(fields[0]).Error(msg)
-	} else {
-		Logger.Error(msg)
-	}
+func Error(msg string) {
+	Logger.Error(msg)
 }
 
-func Debug(msg string, fields ...logrus.Fields) {
-	if len(fields) > 0 {
-		Logger.WithFields(fields[0]).Debug(msg)
-	} else {
-		Logger.Debug(msg)
-	}
+func Fatal(msg string) {
+	Logger.Fatal(msg)
 }
 
-func Warn(msg string, fields ...logrus.Fields) {
-	if len(fields) > 0 {
-		Logger.WithFields(fields[0]).Warn(msg)
-	} else {
-		Logger.Warn(msg)
+// Unified error logging function for all error scenarios
+func LogError(funcCtx, msg string, err error, fields ...logrus.Fields) {
+	logFields := logrus.Fields{
+		"context": funcCtx,
 	}
+
+	if err != nil {
+		logFields["error"] = err.Error()
+	}
+
+	if len(fields) > 0 {
+		for k, v := range fields[0] {
+			logFields[k] = v
+		}
+	}
+
+	Logger.WithFields(logFields).Error(msg)
 }
 
-func Fatal(msg string, fields ...logrus.Fields) {
+// Success logging for positive outcomes
+func LogSuccess(funcCtx, msg string, fields ...logrus.Fields) {
+	logFields := logrus.Fields{"context": funcCtx}
 	if len(fields) > 0 {
-		Logger.WithFields(fields[0]).Fatal(msg)
-	} else {
-		Logger.Fatal(msg)
+		for k, v := range fields[0] {
+			logFields[k] = v
+		}
 	}
+	Logger.WithFields(logFields).Info(msg)
 }

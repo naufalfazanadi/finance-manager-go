@@ -1,27 +1,27 @@
 package routes
 
 import (
-	"github.com/naufalfazanadi/finance-manager-go/internal/app/handlers"
-	"github.com/naufalfazanadi/finance-manager-go/internal/domain/repositories"
-	"github.com/naufalfazanadi/finance-manager-go/internal/domain/usecases"
-	"github.com/naufalfazanadi/finance-manager-go/pkg/validator"
-
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
+	"github.com/naufalfazanadi/finance-manager-go/internal/app/container"
+	"github.com/naufalfazanadi/finance-manager-go/internal/app/middleware"
 )
 
-// UserRoutes handles user-related routes and initializes dependencies per module
-func UserRoutes(api fiber.Router, db *gorm.DB, validator *validator.Validator) {
-	// Initialize dependencies for user module
-	userRepo := repositories.NewUserRepository(db)
-	userUseCase := usecases.NewUserUseCase(userRepo, validator)
-	userHandler := handlers.NewUserHandler(userUseCase)
+// UserRoutes handles user-related routes using centralized dependencies
+func UserRoutes(api fiber.Router, dependencies *container.Container) {
+	// Get handlers and middleware from centralized container
+	authMiddleware := dependencies.GetAuthMiddleware()
+	userHandler := dependencies.GetUserHandler()
 
 	// User routes
-	users := api.Group("/users")
-	users.Post("/", userHandler.CreateUser)
-	users.Get("/", userHandler.GetUsers)
-	users.Get("/:id", userHandler.GetUser)
-	users.Put("/:id", userHandler.UpdateUser)
-	users.Delete("/:id", userHandler.DeleteUser)
+	v1 := api.Group("/v1")
+	users := v1.Group("/users")
+
+	// Public routes (no authentication required)
+	users.Post("/", userHandler.CreateUser) // Create user (signup)
+
+	// Protected routes (authentication required)
+	users.Get("/", authMiddleware.JWTAuth(), userHandler.GetUsers)                                    // Get all users (user/admin)
+	users.Get("/:id", authMiddleware.JWTAuth(), userHandler.GetUser)                                  // Get user by ID (user/admin)
+	users.Put("/:id", authMiddleware.JWTAuth(), userHandler.UpdateUser)                               // Update user (user/admin)
+	users.Delete("/:id", authMiddleware.JWTAuth(), middleware.RequireAdmin(), userHandler.DeleteUser) // Delete user (admin only)
 }

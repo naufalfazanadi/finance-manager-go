@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/entities"
+	"github.com/naufalfazanadi/finance-manager-go/internal/dto"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -15,10 +16,11 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*entities.User, error)
 	GetByEmail(ctx context.Context, email string) (*entities.User, error)
 	GetOne(ctx context.Context, filter map[string]interface{}) (*entities.User, error)
-	GetAll(ctx context.Context, limit, offset int) ([]*entities.User, error)
+	GetAll(ctx context.Context, queryParams *dto.QueryParams) ([]*entities.User, error)
 	Update(ctx context.Context, user *entities.User) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	Count(ctx context.Context) (int64, error)
+	CountWithFilters(ctx context.Context, queryParams *dto.QueryParams) (int64, error)
 }
 
 type userRepositoryImpl struct {
@@ -75,15 +77,57 @@ func (r *userRepositoryImpl) GetOne(ctx context.Context, filter map[string]inter
 	return &user, nil
 }
 
-func (r *userRepositoryImpl) GetAll(ctx context.Context, limit, offset int) ([]*entities.User, error) {
+func (r *userRepositoryImpl) GetAll(ctx context.Context, queryParams *dto.QueryParams) ([]*entities.User, error) {
 	var users []*entities.User
 	query := r.db.WithContext(ctx)
 
-	if limit > 0 {
-		query = query.Limit(limit)
+	// Apply search if provided
+	if queryParams.HasSearch() {
+		searchTerm := "%" + queryParams.Search + "%"
+		query = query.Where("name ILIKE ? OR email ILIKE ?", searchTerm, searchTerm)
 	}
-	if offset > 0 {
-		query = query.Offset(offset)
+
+	// Apply custom filters
+	if queryParams.HasFilters() {
+		for key, value := range queryParams.Filters {
+			// Only allow safe column names to prevent SQL injection
+			switch key {
+			case "role", "name", "email":
+				query = query.Where(key+" = ?", value)
+			case "created_after":
+				query = query.Where("created_at >= ?", value)
+			case "created_before":
+				query = query.Where("created_at <= ?", value)
+			}
+		}
+	}
+
+	// Apply sorting
+	if queryParams.HasSort() {
+		// Only allow safe column names for sorting
+		allowedSortColumns := map[string]bool{
+			"name":       true,
+			"email":      true,
+			"role":       true,
+			"created_at": true,
+			"updated_at": true,
+		}
+
+		if allowedSortColumns[queryParams.SortBy] {
+			orderClause := queryParams.SortBy + " " + queryParams.SortType
+			query = query.Order(orderClause)
+		}
+	} else {
+		// Default sorting
+		query = query.Order("created_at DESC")
+	}
+
+	// Apply pagination
+	if queryParams.Limit > 0 {
+		query = query.Limit(queryParams.Limit)
+	}
+	if queryParams.GetOffset() > 0 {
+		query = query.Offset(queryParams.GetOffset())
 	}
 
 	if err := query.Find(&users).Error; err != nil {
@@ -109,6 +153,37 @@ func (r *userRepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error {
 func (r *userRepositoryImpl) Count(ctx context.Context) (int64, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Model(&entities.User{}).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *userRepositoryImpl) CountWithFilters(ctx context.Context, queryParams *dto.QueryParams) (int64, error) {
+	var count int64
+	query := r.db.WithContext(ctx).Model(&entities.User{})
+
+	// Apply search if provided
+	if queryParams.HasSearch() {
+		searchTerm := "%" + queryParams.Search + "%"
+		query = query.Where("name ILIKE ? OR email ILIKE ?", searchTerm, searchTerm)
+	}
+
+	// Apply custom filters
+	if queryParams.HasFilters() {
+		for key, value := range queryParams.Filters {
+			// Only allow safe column names to prevent SQL injection
+			switch key {
+			case "role", "name", "email":
+				query = query.Where(key+" = ?", value)
+			case "created_after":
+				query = query.Where("created_at >= ?", value)
+			case "created_before":
+				query = query.Where("created_at <= ?", value)
+			}
+		}
+	}
+
+	if err := query.Count(&count).Error; err != nil {
 		return 0, err
 	}
 	return count, nil

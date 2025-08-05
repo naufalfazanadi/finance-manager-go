@@ -12,6 +12,7 @@ type Config struct {
 	Database types.DatabaseConfig
 	Server   ServerConfig
 	App      AppConfig
+	JWT      JWTConfig
 }
 
 type ServerConfig struct {
@@ -22,6 +23,11 @@ type ServerConfig struct {
 type AppConfig struct {
 	Env      string
 	LogLevel string
+}
+
+type JWTConfig struct {
+	Secret    string
+	ExpiresIn string
 }
 
 func LoadConfig() *Config {

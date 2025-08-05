@@ -9,23 +9,23 @@ import (
 
 // Pagination DTOs
 type PaginationQuery struct {
-	Page  int `json:"page" query:"page"`
-	Limit int `json:"limit" query:"limit"`
+	Page  int `json:"page" query:"page" example:"1"`
+	Limit int `json:"limit" query:"limit" example:"10"`
 }
 
 type PaginationMeta struct {
-	Page       int   `json:"page"`
-	Limit      int   `json:"limit"`
-	Total      int64 `json:"total"`
-	TotalPages int   `json:"total_pages"`
+	Page       int   `json:"page" example:"1"`
+	Limit      int   `json:"limit" example:"10"`
+	Total      int64 `json:"total" example:"100"`
+	TotalPages int   `json:"total_pages" example:"10"`
 }
 
 // Filter DTOs
 type FilterQuery struct {
-	Search  string            `json:"search" query:"search"`
-	SortBy  string            `json:"sort_by" query:"sort_by"`
-	SortDir string            `json:"sort_dir" query:"sort_dir"`
-	Filters map[string]string `json:"filters" query:"filters"`
+	Search   string            `json:"search" query:"search"`
+	SortBy   string            `json:"sort_by" query:"sort_by"`
+	SortType string            `json:"sort_type" query:"sort_type"`
+	Filters  map[string]string `json:"filters" query:"filters"`
 }
 
 // Combined Query for pagination and filtering
@@ -61,22 +61,22 @@ func ParsePaginationQuery(c *fiber.Ctx) *PaginationQuery {
 func ParseFilterQuery(c *fiber.Ctx) *FilterQuery {
 	search := c.Query("search")
 	sortBy := c.Query("sort_by")
-	sortDir := strings.ToLower(c.Query("sort_dir"))
+	sortType := strings.ToLower(c.Query("sort_type"))
 
 	// Validate sort direction
-	if sortDir != "asc" && sortDir != "desc" {
-		sortDir = "asc"
+	if sortType != "asc" && sortType != "desc" {
+		sortType = "asc"
 	}
 
-	// Parse custom filters (e.g., ?name=john&age=25)
+	// Parse custom filters (e.g., ?name=john&role=user)
 	filters := make(map[string]string)
 	queryMap := c.Queries()
 	excludedParams := map[string]bool{
-		"page":     true,
-		"limit":    true,
-		"search":   true,
-		"sort_by":  true,
-		"sort_dir": true,
+		"page":      true,
+		"limit":     true,
+		"search":    true,
+		"sort_by":   true,
+		"sort_type": true,
 	}
 
 	for key, value := range queryMap {
@@ -86,10 +86,10 @@ func ParseFilterQuery(c *fiber.Ctx) *FilterQuery {
 	}
 
 	return &FilterQuery{
-		Search:  search,
-		SortBy:  sortBy,
-		SortDir: sortDir,
-		Filters: filters,
+		Search:   search,
+		SortBy:   sortBy,
+		SortType: sortType,
+		Filters:  filters,
 	}
 }
 

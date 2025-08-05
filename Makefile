@@ -6,14 +6,18 @@ BUILD_DIR=./tmp
 MAIN_PATH=./cmd/server
 
 # Development commands
-.PHONY: dev build run clean test deps air
+.PHONY: dev build run clean test deps air swagger
 
 # Run with air (live reload)
 dev:
 	air -c .air.toml
 
+# Generate Swagger documentation
+swagger:
+	swag init -g cmd/server/main.go -o docs --parseDependency
+
 # Build the application
-build:
+build: swagger
 	go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 
 # Run the built binary

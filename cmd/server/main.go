@@ -1,3 +1,17 @@
+// @title Finance Manager API
+// @version 1.0
+// @description This is a finance manager API server built with Go and Fiber framework.
+// @termsOfService http://swagger.io/terms/
+// @contact.name API Support
+// @contact.email naufalfazanadi@example.com
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+// @host localhost:8080
+// @BasePath /api
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 package main
 
 import (
@@ -6,6 +20,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	_ "github.com/naufalfazanadi/finance-manager-go/docs"
 	"github.com/naufalfazanadi/finance-manager-go/internal/app/routes"
 	"github.com/naufalfazanadi/finance-manager-go/internal/infrastructure/database"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/config"
