@@ -1,15 +1,16 @@
 package auth
 
 import (
+	"context"
 	"errors"
-	"fmt"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/entities"
+	"github.com/naufalfazanadi/finance-manager-go/internal/domain/repositories"
+	"github.com/naufalfazanadi/finance-manager-go/pkg/config"
 )
 
 var (
@@ -20,11 +21,9 @@ var (
 // initJWT initializes JWT secret (called once)
 func initJWT() {
 	jwtOnce.Do(func() {
-		secret := os.Getenv("JWT_SECRET")
-		if secret == "" {
-			secret = "your-secret-key-change-in-production"
-		}
-		fmt.Printf("JWT initialized with secret length: %d\n", len(secret))
+		cfg := config.LoadConfig()
+		secret := cfg.JWT.Secret
+		// fmt.Printf("JWT initialized with secret length: %d\n", len(secret))
 		jwtSecret = []byte(secret)
 	})
 }
@@ -42,11 +41,20 @@ type JWTClaims struct {
 func GenerateToken(user *entities.User) (string, error) {
 	initJWT() // Ensure JWT is initialized
 
-	now := time.Now()
-	expirationTime := now.Add(24 * time.Hour)
+	cfg := config.LoadConfig()
 
-	fmt.Printf("Token generation - Current time: %v (Unix: %d)\n", now, now.Unix())
-	fmt.Printf("Token generation - Expiration time: %v (Unix: %d)\n", expirationTime, expirationTime.Unix())
+	now := time.Now()
+	// Parse expiration time from config (default: 24h)
+	expirationDuration, err := time.ParseDuration(cfg.JWT.ExpiresIn)
+	if err != nil {
+		// Fallback to 24 hours if parsing fails
+		expirationDuration = 24 * time.Hour
+		// fmt.Printf("Warning: Failed to parse JWT_EXPIRES_IN, using default 24h: %v\n", err)
+	}
+	expirationTime := now.Add(expirationDuration)
+
+	// fmt.Printf("Token generation - Current time: %v (Unix: %d)\n", now, now.Unix())
+	// fmt.Printf("Token generation - Expiration time: %v (Unix: %d)\n", expirationTime, expirationTime.Unix())
 
 	claims := &JWTClaims{
 		UserID: user.ID,
@@ -66,7 +74,7 @@ func GenerateToken(user *entities.User) (string, error) {
 		return "", err
 	}
 
-	fmt.Printf("Token generated successfully\n")
+	// fmt.Printf("Token generated successfully\n")
 	return tokenString, nil
 }
 
@@ -84,16 +92,41 @@ func ValidateToken(tokenString string) (*JWTClaims, error) {
 	})
 
 	if err != nil {
-		fmt.Printf("JWT validation error: %v\n", err)
+		// fmt.Printf("JWT validation error: %v\n", err)
 		return nil, err
 	}
 
 	if !token.Valid {
-		fmt.Printf("Token is not valid\n")
+		// fmt.Printf("Token is not valid\n")
 		return nil, errors.New("invalid token")
 	}
 
-	fmt.Printf("Token validated successfully\n")
+	// fmt.Printf("Token validated successfully\n")
+	return claims, nil
+}
+
+// ValidateTokenWithDB validates a JWT token and checks if user exists in database
+// Returns updated claims with fresh data from database
+func ValidateTokenWithDB(ctx context.Context, tokenString string, userRepo repositories.UserRepository) (*JWTClaims, error) {
+	// First, validate the token signature and expiration
+	claims, err := ValidateToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
+
+	// Then, check if the user still exists in the database
+	user, err := userRepo.GetByID(ctx, claims.UserID)
+	if err != nil {
+		// fmt.Printf("User validation failed: %v\n", err)
+		return nil, errors.New("user not found or account has been deactivated")
+	}
+
+	// Update claims with fresh data from database (in case role or other info changed)
+	claims.Email = user.Email
+	claims.Name = user.Name
+	claims.Role = user.Role
+
+	// fmt.Printf("Token validated with database successfully for user: %s\n", user.Email)
 	return claims, nil
 }
 

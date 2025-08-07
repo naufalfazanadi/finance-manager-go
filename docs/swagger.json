@@ -17,6 +17,85 @@
     "host": "localhost:8080",
     "basePath": "/api",
     "paths": {
+        "/": {
+            "get": {
+                "description": "Basic health check endpoint to verify service is running",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Basic health check",
+                "responses": {
+                    "200": {
+                        "description": "{\"status\": \"ok\", \"service\": \"finance-manager-go\", \"message\": \"Service is running\"}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "Basic health check endpoint to verify service is running",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Basic health check",
+                "responses": {
+                    "200": {
+                        "description": "{\"status\": \"ok\", \"service\": \"finance-manager-go\", \"message\": \"Service is running\"}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/health/db": {
+            "get": {
+                "description": "Database health check with connection statistics",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Database health check",
+                "responses": {
+                    "200": {
+                        "description": "{\"status\": \"ok\", \"database\": \"connected\", \"connection_stats\": {...}}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "503": {
+                        "description": "{\"status\": \"error\", \"message\": \"Database connection failed\", \"error\": \"...\"}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/auth/login": {
             "post": {
                 "description": "Login user with email and password",
@@ -37,7 +116,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.LoginRequest"
+                            "$ref": "#/definitions/dto.LoginRequest"
                         }
                     }
                 ],
@@ -45,19 +124,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.LoginResponse"
+                            "$ref": "#/definitions/dto.LoginResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -85,19 +164,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.UserResponse"
+                            "$ref": "#/definitions/dto.UserResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -105,7 +184,7 @@
         },
         "/v1/auth/register": {
             "post": {
-                "description": "Register a new user with email, name, and password",
+                "description": "Register a new user with email, name, password and birth date",
                 "consumes": [
                     "application/json"
                 ],
@@ -123,7 +202,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.RegisterRequest"
+                            "$ref": "#/definitions/dto.RegisterRequest"
                         }
                     }
                 ],
@@ -131,19 +210,19 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.AuthResponse"
+                            "$ref": "#/definitions/dto.AuthResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -217,14 +296,14 @@
                                 "data": {
                                     "type": "array",
                                     "items": {
-                                        "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.UserResponse"
+                                        "$ref": "#/definitions/dto.UserResponse"
                                     }
                                 },
                                 "message": {
                                     "type": "string"
                                 },
                                 "meta": {
-                                    "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.PaginationMeta"
+                                    "$ref": "#/definitions/dto.PaginationMeta"
                                 },
                                 "success": {
                                     "type": "boolean"
@@ -235,13 +314,13 @@
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -265,7 +344,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.CreateUserRequest"
+                            "$ref": "#/definitions/dto.CreateUserRequest"
                         }
                     }
                 ],
@@ -273,19 +352,157 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.UserResponse"
+                            "$ref": "#/definitions/dto.UserResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/users/deleted": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get only users that have been soft deleted",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get only soft deleted users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search term",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort by field",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "desc",
+                        "description": "Sort type (asc/desc)",
+                        "name": "sort_type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.UsersResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/users/with-deleted": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all users including those that have been soft deleted",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get all users including soft deleted ones",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search term",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort by field",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "desc",
+                        "description": "Sort type (asc/desc)",
+                        "name": "sort_type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.UsersResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -322,25 +539,25 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.UserResponse"
+                            "$ref": "#/definitions/dto.UserResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -351,16 +568,14 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update user information\nUpdate user information",
+                "description": "Update user information",
                 "consumes": [
-                    "application/json",
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "users",
                     "users"
                 ],
                 "summary": "Update user",
@@ -378,7 +593,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.UpdateUserRequest"
+                            "$ref": "#/definitions/dto.UpdateUserRequest"
                         }
                     }
                 ],
@@ -386,25 +601,25 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.UserResponse"
+                            "$ref": "#/definitions/dto.UserResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -415,7 +630,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete a user by ID (Admin only)",
+                "description": "Soft delete a user by their ID (marks as deleted but keeps data)",
                 "consumes": [
                     "application/json"
                 ],
@@ -425,7 +640,7 @@
                 "tags": [
                     "users"
                 ],
-                "summary": "Delete user",
+                "summary": "Delete user by ID (soft delete)",
                 "parameters": [
                     {
                         "type": "string",
@@ -442,25 +657,105 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/users/{id}/hard-delete": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Permanently delete a user by their ID (cannot be restored)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Permanently delete user by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/users/{id}/restore": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Restore a soft deleted user by their ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Restore soft deleted user by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -468,19 +763,48 @@
         }
     },
     "definitions": {
-        "github_com_naufalfazanadi_finance-manager-go_internal_dto.AuthResponse": {
+        "dto.AuthResponse": {
             "type": "object",
             "properties": {
+                "age": {
+                    "type": "integer",
+                    "example": 33
+                },
+                "birth_date": {
+                    "type": "string",
+                    "example": "1990-01-15T00:00:00Z"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "123e4567-e89b-12d3-a456-426614174000"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "user"
+                },
                 "token": {
                     "type": "string",
                     "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 },
-                "user": {
-                    "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.UserResponse"
+                "updated_at": {
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
                 }
             }
         },
-        "github_com_naufalfazanadi_finance-manager-go_internal_dto.CreateUserRequest": {
+        "dto.CreateUserRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -488,6 +812,10 @@
                 "password"
             ],
             "properties": {
+                "birth_date": {
+                    "type": "string",
+                    "example": "1990-01-15T00:00:00Z"
+                },
                 "email": {
                     "type": "string",
                     "example": "user@example.com"
@@ -503,18 +831,10 @@
                     "maxLength": 100,
                     "minLength": 8,
                     "example": "password123"
-                },
-                "role": {
-                    "type": "string",
-                    "enum": [
-                        "user",
-                        "admin"
-                    ],
-                    "example": "user"
                 }
             }
         },
-        "github_com_naufalfazanadi_finance-manager-go_internal_dto.ErrorResponse": {
+        "dto.ErrorResponse": {
             "type": "object",
             "properties": {
                 "details": {
@@ -531,7 +851,7 @@
                 }
             }
         },
-        "github_com_naufalfazanadi_finance-manager-go_internal_dto.LoginRequest": {
+        "dto.LoginRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -548,19 +868,48 @@
                 }
             }
         },
-        "github_com_naufalfazanadi_finance-manager-go_internal_dto.LoginResponse": {
+        "dto.LoginResponse": {
             "type": "object",
             "properties": {
+                "age": {
+                    "type": "integer",
+                    "example": 33
+                },
+                "birth_date": {
+                    "type": "string",
+                    "example": "1990-01-15T00:00:00Z"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "123e4567-e89b-12d3-a456-426614174000"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "user"
+                },
                 "token": {
                     "type": "string",
                     "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 },
-                "user": {
-                    "$ref": "#/definitions/github_com_naufalfazanadi_finance-manager-go_internal_dto.UserResponse"
+                "updated_at": {
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
                 }
             }
         },
-        "github_com_naufalfazanadi_finance-manager-go_internal_dto.PaginationMeta": {
+        "dto.PaginationMeta": {
             "type": "object",
             "properties": {
                 "limit": {
@@ -581,14 +930,19 @@
                 }
             }
         },
-        "github_com_naufalfazanadi_finance-manager-go_internal_dto.RegisterRequest": {
+        "dto.RegisterRequest": {
             "type": "object",
             "required": [
+                "birth_date",
                 "email",
                 "name",
                 "password"
             ],
             "properties": {
+                "birth_date": {
+                    "type": "string",
+                    "example": "1990-01-15"
+                },
                 "email": {
                     "type": "string",
                     "example": "user@example.com"
@@ -604,20 +958,16 @@
                     "maxLength": 100,
                     "minLength": 8,
                     "example": "password123"
-                },
-                "role": {
-                    "type": "string",
-                    "enum": [
-                        "user",
-                        "admin"
-                    ],
-                    "example": "user"
                 }
             }
         },
-        "github_com_naufalfazanadi_finance-manager-go_internal_dto.UpdateUserRequest": {
+        "dto.UpdateUserRequest": {
             "type": "object",
             "properties": {
+                "birth_date": {
+                    "type": "string",
+                    "example": "1990-01-15T00:00:00Z"
+                },
                 "name": {
                     "type": "string",
                     "maxLength": 100,
@@ -626,9 +976,17 @@
                 }
             }
         },
-        "github_com_naufalfazanadi_finance-manager-go_internal_dto.UserResponse": {
+        "dto.UserResponse": {
             "type": "object",
             "properties": {
+                "age": {
+                    "type": "integer",
+                    "example": 33
+                },
+                "birth_date": {
+                    "type": "string",
+                    "example": "1990-01-15T00:00:00Z"
+                },
                 "created_at": {
                     "type": "string",
                     "example": "2023-01-01T00:00:00Z"
@@ -652,6 +1010,20 @@
                 "updated_at": {
                     "type": "string",
                     "example": "2023-01-01T00:00:00Z"
+                }
+            }
+        },
+        "dto.UsersResponse": {
+            "type": "object",
+            "properties": {
+                "pagination": {
+                    "$ref": "#/definitions/dto.PaginationMeta"
+                },
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.UserResponse"
+                    }
                 }
             }
         }

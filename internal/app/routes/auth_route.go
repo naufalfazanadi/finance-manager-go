@@ -6,7 +6,7 @@ import (
 )
 
 // AuthRoutes handles authentication-related routes using centralized dependencies
-func AuthRoutes(api fiber.Router, dependencies *container.Container) {
+func AuthRoutes(api fiber.Router, dependencies *container.ServiceContainer) {
 	// Get handlers and middleware from centralized container
 	authMiddleware := dependencies.GetAuthMiddleware()
 	authHandler := dependencies.GetAuthHandler()

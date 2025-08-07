@@ -6,16 +6,22 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/entities"
+	"github.com/naufalfazanadi/finance-manager-go/internal/domain/repositories"
 	"github.com/naufalfazanadi/finance-manager-go/internal/dto"
 	"github.com/naufalfazanadi/finance-manager-go/internal/infrastructure/auth"
+	"github.com/naufalfazanadi/finance-manager-go/pkg/config"
 )
 
 // AuthMiddleware wraps authentication services
-type AuthMiddleware struct{}
+type AuthMiddleware struct {
+	userRepo repositories.UserRepository
+}
 
 // NewAuthMiddleware creates a new auth middleware
-func NewAuthMiddleware() *AuthMiddleware {
-	return &AuthMiddleware{}
+func NewAuthMiddleware(userRepo repositories.UserRepository) *AuthMiddleware {
+	return &AuthMiddleware{
+		userRepo: userRepo,
+	}
 }
 
 // ErrorHandler handles fiber errors
@@ -35,7 +41,7 @@ func ErrorHandler(c *fiber.Ctx, err error) error {
 // CORS middleware
 func CORS() fiber.Handler {
 	return cors.New(cors.Config{
-		AllowOrigins: "*",
+		AllowOrigins: config.LoadConfig().CORS.AllowOrigins,
 		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
 	})
@@ -53,21 +59,33 @@ func (am *AuthMiddleware) JWTAuth() fiber.Handler {
 			})
 		}
 
-		// Extract token from header
-		token, err := auth.ExtractTokenFromHeader(authHeader)
-		if err != nil {
+		// Extract token from header with improved parsing
+		var token string
+
+		// Handle different Authorization header formats
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			token = authHeader[7:]
+		} else if strings.HasPrefix(authHeader, "bearer ") {
+			token = authHeader[7:]
+		} else {
+			// If no Bearer prefix, assume the entire header is the token
+			token = strings.TrimSpace(authHeader)
+		}
+
+		// Validate that we have a token
+		if token == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(&dto.ErrorResponse{
 				Error:   "Unauthorized",
-				Message: "Invalid authorization header format",
+				Message: "Empty token provided",
 			})
 		}
 
-		// Validate token
-		claims, err := auth.ValidateToken(token)
+		// Validate token with database check
+		claims, err := auth.ValidateTokenWithDB(c.Context(), token, am.userRepo)
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(&dto.ErrorResponse{
 				Error:   "Unauthorized",
-				Message: "Invalid or expired token",
+				Message: "Invalid or expired token: " + err.Error(),
 			})
 		}
 
@@ -123,18 +141,30 @@ func (am *AuthMiddleware) OptionalJWTAuth() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Get the Authorization header
 		authHeader := c.Get("Authorization")
-		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		if authHeader == "" {
 			return c.Next()
 		}
 
-		// Extract token from header
-		token, err := auth.ExtractTokenFromHeader(authHeader)
-		if err != nil {
+		// Extract token from header with improved parsing
+		var token string
+
+		// Handle different Authorization header formats
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			token = authHeader[7:]
+		} else if strings.HasPrefix(authHeader, "bearer ") {
+			token = authHeader[7:]
+		} else {
+			// If no Bearer prefix, assume the entire header is the token
+			token = authHeader
+		}
+
+		// If no valid token, continue without authentication
+		if token == "" {
 			return c.Next()
 		}
 
-		// Validate token
-		claims, err := auth.ValidateToken(token)
+		// Validate token with database check
+		claims, err := auth.ValidateTokenWithDB(c.Context(), token, am.userRepo)
 		if err != nil {
 			return c.Next()
 		}

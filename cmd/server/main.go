@@ -21,11 +21,13 @@ import (
 	"syscall"
 
 	_ "github.com/naufalfazanadi/finance-manager-go/docs"
+	"github.com/naufalfazanadi/finance-manager-go/internal/app/container"
 	"github.com/naufalfazanadi/finance-manager-go/internal/app/routes"
 	"github.com/naufalfazanadi/finance-manager-go/internal/infrastructure/database"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/config"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/logger"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/validator"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 func main() {
@@ -37,14 +39,28 @@ func main() {
 		log.Fatal("Failed to initialize logger:", err)
 	}
 
+	// Initialize DataDog tracer
+	appEnv := cfg.App.Env
+	if appEnv == "staging" || appEnv == "production" {
+		tracer.Start(
+			tracer.WithEnv(appEnv),
+			tracer.WithServiceName("fabd-core-revenue-service"),
+		)
+
+		defer tracer.Stop()
+	}
+
 	// Initialize database
 	db := database.NewPostgresDB(cfg.Database)
 
 	// Initialize validator
 	validator := validator.New()
 
+	// Initialize centralized dependency container
+	dependencies := container.NewServiceContainer(db, validator)
+
 	// Setup routes with dependencies
-	app := routes.Setup(db, validator)
+	app := routes.Setup(dependencies)
 
 	// Start server
 	serverAddr := cfg.Server.Host + ":" + cfg.Server.Port

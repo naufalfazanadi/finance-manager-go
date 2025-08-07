@@ -8,9 +8,9 @@ import (
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/repositories"
 	"github.com/naufalfazanadi/finance-manager-go/internal/dto"
 	"github.com/naufalfazanadi/finance-manager-go/internal/infrastructure/auth"
+	"github.com/naufalfazanadi/finance-manager-go/pkg/encryption"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/helpers"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/logger"
-	"github.com/naufalfazanadi/finance-manager-go/pkg/validator"
 	"github.com/sirupsen/logrus"
 )
 
@@ -19,61 +19,65 @@ type UserUseCaseInterface interface {
 	GetUser(ctx context.Context, id string) (*dto.UserResponse, error)
 	GetUsers(ctx context.Context, queryParams *dto.QueryParams) (*dto.UsersResponse, error)
 	UpdateUser(ctx context.Context, id string, req *dto.UpdateUserRequest) (*dto.UserResponse, error)
-	DeleteUser(ctx context.Context, id string) error
+	DeleteUser(ctx context.Context, id string) error // This now does soft delete
+	// Soft delete methods
+	RestoreUser(ctx context.Context, id string) error
+	GetUsersWithDeleted(ctx context.Context, queryParams *dto.QueryParams) (*dto.UsersResponse, error)
+	GetOnlyDeletedUsers(ctx context.Context, queryParams *dto.QueryParams) (*dto.UsersResponse, error)
+	HardDeleteUser(ctx context.Context, id string) error // For permanent deletion
 }
 
 type UserUseCase struct {
-	userRepo  repositories.UserRepository
-	validator *validator.Validator
+	userRepo repositories.UserRepository
 }
 
-func NewUserUseCase(userRepo repositories.UserRepository, validator *validator.Validator) UserUseCaseInterface {
+func NewUserUseCase(userRepo repositories.UserRepository) UserUseCaseInterface {
 	return &UserUseCase{
-		userRepo:  userRepo,
-		validator: validator,
+		userRepo: userRepo,
 	}
 }
 
 func (uc *UserUseCase) CreateUser(ctx context.Context, req *dto.CreateUserRequest) (*dto.UserResponse, error) {
 	funcCtx := "CreateUser"
 
-	// Validate request
-	if err := uc.validator.Validate(req); err != nil {
-		logger.LogError(funcCtx, "validation failed", err, logrus.Fields{"email": req.Email})
-		return nil, helpers.NewValidationError("validation failed", err.Error())
+	// Hash the email to check for existing user
+	hashResult := encryption.HashSHA256(req.Email)
+	if hashResult.Error != nil {
+		logger.LogError(funcCtx, "failed to hash email", hashResult.Error, logrus.Fields{"email": req.Email})
+		return nil, helpers.NewInternalError("failed to process email", hashResult.Error.Error())
 	}
 
-	// Check if user already exists
-	existingUser, _ := uc.userRepo.GetByEmail(ctx, req.Email)
+	emailHash := hashResult.Data.(string)
+
+	// Check if user already exists using email hash
+	existingUser, _ := uc.userRepo.GetByEmailHash(ctx, emailHash)
 	if existingUser != nil {
-		logger.LogError(funcCtx, "user already exists", nil, logrus.Fields{"email": req.Email})
+		logger.LogError(funcCtx, "user already exists", nil, logrus.Fields{"email_hash": emailHash})
 		return nil, helpers.NewConflictError("user with this email already exists", "")
 	}
 
 	// Hash password
 	hashedPassword, err := auth.HashPassword(req.Password)
 	if err != nil {
-		logger.LogError(funcCtx, "failed to hash password", err, logrus.Fields{"email": req.Email})
+		logger.LogError(funcCtx, "failed to hash password", err, logrus.Fields{"email_hash": emailHash})
 		return nil, helpers.NewInternalError("failed to hash password", err.Error())
 	}
 
-	// Set role (default to user if not specified)
+	// Set role to default user role (no longer accepting from request)
 	role := entities.UserRoleUser
-	if req.Role != "" {
-		role = entities.UserRole(req.Role)
-	}
 
 	// Create user entity
 	user := &entities.User{
-		Email:    req.Email,
-		Name:     req.Name,
-		Password: hashedPassword,
-		Role:     role,
+		Email:     req.Email,     // Set the plain email - it will be encrypted in BeforeCreate hook
+		BirthDate: req.BirthDate, // Set the birth date - it will be encrypted in BeforeCreate hook
+		Name:      req.Name,
+		Password:  hashedPassword,
+		Role:      role,
 	}
 
 	// Save user
 	if err := uc.userRepo.Create(ctx, user); err != nil {
-		logger.LogError(funcCtx, "failed to create user", err, logrus.Fields{"email": req.Email})
+		logger.LogError(funcCtx, "failed to create user", err, logrus.Fields{"email_hash": emailHash})
 		return nil, helpers.NewInternalError("failed to create user", err.Error())
 	}
 
@@ -131,14 +135,6 @@ func (uc *UserUseCase) GetUsers(ctx context.Context, queryParams *dto.QueryParam
 func (uc *UserUseCase) UpdateUser(ctx context.Context, id string, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
 	funcCtx := "UpdateUser"
 
-	// Validate request
-	if err := uc.validator.Validate(req); err != nil {
-		logger.LogError(funcCtx, "validation failed", err, logrus.Fields{
-			"user_id": id,
-		})
-		return nil, helpers.NewValidationError("validation failed", err.Error())
-	}
-
 	userID, err := uuid.Parse(id)
 	if err != nil {
 		logger.LogError(funcCtx, "invalid user ID format", err, logrus.Fields{
@@ -160,6 +156,9 @@ func (uc *UserUseCase) UpdateUser(ctx context.Context, id string, req *dto.Updat
 	if req.Name != "" {
 		user.Name = req.Name
 	}
+
+	// Update birth date (can be set to nil to clear it)
+	user.BirthDate = req.BirthDate
 
 	// Save updated user
 	if err := uc.userRepo.Update(ctx, user); err != nil {
@@ -192,7 +191,8 @@ func (uc *UserUseCase) DeleteUser(ctx context.Context, id string) error {
 		return helpers.NewNotFoundError("user not found", "")
 	}
 
-	if err := uc.userRepo.Delete(ctx, userID); err != nil {
+	// Use soft delete for default delete operation
+	if err := uc.userRepo.SoftDelete(ctx, userID); err != nil {
 		logger.LogError(funcCtx, "failed to delete user", err, logrus.Fields{
 			"user_id": id,
 		})
@@ -208,7 +208,126 @@ func (uc *UserUseCase) mapToUserResponse(user *entities.User) *dto.UserResponse 
 		Email:     user.Email,
 		Name:      user.Name,
 		Role:      string(user.Role),
+		BirthDate: user.BirthDate,
+		Age:       user.GetAge(),
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 	}
+}
+
+// RestoreUser restores a soft deleted user by ID
+func (uc *UserUseCase) RestoreUser(ctx context.Context, id string) error {
+	funcCtx := "RestoreUser"
+
+	userID, err := uuid.Parse(id)
+	if err != nil {
+		logger.LogError(funcCtx, "invalid user ID", err, logrus.Fields{
+			"user_id": id,
+		})
+		return helpers.NewValidationError("invalid user ID", "")
+	}
+
+	if err := uc.userRepo.Restore(ctx, userID); err != nil {
+		logger.LogError(funcCtx, "failed to restore user", err, logrus.Fields{
+			"user_id": id,
+		})
+		return helpers.NewInternalError("failed to restore user", err.Error())
+	}
+
+	return nil
+}
+
+// GetUsersWithDeleted gets all users including soft deleted ones
+func (uc *UserUseCase) GetUsersWithDeleted(ctx context.Context, queryParams *dto.QueryParams) (*dto.UsersResponse, error) {
+	funcCtx := "GetUsersWithDeleted"
+
+	users, err := uc.userRepo.GetWithDeleted(ctx, queryParams)
+	if err != nil {
+		logger.LogError(funcCtx, "failed to get users with deleted", err, logrus.Fields{
+			"limit":  queryParams.Limit,
+			"offset": queryParams.GetOffset(),
+		})
+		return nil, helpers.NewInternalError("failed to get users", err.Error())
+	}
+
+	// Convert entities to DTOs
+	var userResponses []dto.UserResponse
+	for _, user := range users {
+		userResponses = append(userResponses, *uc.mapToUserResponse(user))
+	}
+
+	// Get total count
+	totalCount, err := uc.userRepo.CountWithFilters(ctx, queryParams)
+	if err != nil {
+		logger.LogError(funcCtx, "failed to count users", err, logrus.Fields{})
+		return nil, helpers.NewInternalError("failed to count users", err.Error())
+	}
+
+	totalPages := int((totalCount + int64(queryParams.Limit) - 1) / int64(queryParams.Limit))
+
+	return &dto.UsersResponse{
+		Users: userResponses,
+		Pagination: &dto.PaginationMeta{
+			Page:       queryParams.Page,
+			Limit:      queryParams.Limit,
+			Total:      totalCount,
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
+// GetOnlyDeletedUsers gets only soft deleted users
+func (uc *UserUseCase) GetOnlyDeletedUsers(ctx context.Context, queryParams *dto.QueryParams) (*dto.UsersResponse, error) {
+	funcCtx := "GetOnlyDeletedUsers"
+
+	users, err := uc.userRepo.GetOnlyDeleted(ctx, queryParams)
+	if err != nil {
+		logger.LogError(funcCtx, "failed to get deleted users", err, logrus.Fields{
+			"limit":  queryParams.Limit,
+			"offset": queryParams.GetOffset(),
+		})
+		return nil, helpers.NewInternalError("failed to get deleted users", err.Error())
+	}
+
+	// Convert entities to DTOs
+	var userResponses []dto.UserResponse
+	for _, user := range users {
+		userResponses = append(userResponses, *uc.mapToUserResponse(user))
+	}
+
+	// For deleted users, we'll use a simple count since CountWithFilters doesn't handle deleted records
+	totalCount := int64(len(users))
+	totalPages := int((totalCount + int64(queryParams.Limit) - 1) / int64(queryParams.Limit))
+
+	return &dto.UsersResponse{
+		Users: userResponses,
+		Pagination: &dto.PaginationMeta{
+			Page:       queryParams.Page,
+			Limit:      queryParams.Limit,
+			Total:      totalCount,
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
+// HardDeleteUser permanently deletes a user from the database
+func (uc *UserUseCase) HardDeleteUser(ctx context.Context, id string) error {
+	funcCtx := "HardDeleteUser"
+
+	userID, err := uuid.Parse(id)
+	if err != nil {
+		logger.LogError(funcCtx, "invalid user ID", err, logrus.Fields{
+			"user_id": id,
+		})
+		return helpers.NewValidationError("invalid user ID", "")
+	}
+
+	if err := uc.userRepo.HardDelete(ctx, userID); err != nil {
+		logger.LogError(funcCtx, "failed to hard delete user", err, logrus.Fields{
+			"user_id": id,
+		})
+		return helpers.NewInternalError("failed to hard delete user", err.Error())
+	}
+
+	return nil
 }

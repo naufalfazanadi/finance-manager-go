@@ -8,10 +8,10 @@ import (
 
 // Authentication Request DTOs
 type RegisterRequest struct {
-	Email    string `json:"email" validate:"required,email" example:"user@example.com"`
-	Name     string `json:"name" validate:"required,min=2,max=100" example:"John Doe"`
-	Password string `json:"password" validate:"required,min=8,max=100" example:"password123"`
-	Role     string `json:"role" validate:"omitempty,oneof=user admin" example:"user"`
+	Email     string `json:"email" validate:"required,email" example:"user@example.com"`
+	Name      string `json:"name" validate:"required,min=2,max=100" example:"John Doe"`
+	Password  string `json:"password" validate:"required,min=8,max=100" example:"password123"`
+	BirthDate string `json:"birth_date" validate:"required,datetime=2006-01-02" example:"1990-01-15"`
 }
 
 type LoginRequest struct {
@@ -21,13 +21,13 @@ type LoginRequest struct {
 
 // Authentication Response DTOs
 type AuthResponse struct {
-	User  UserResponse `json:"user"`
-	Token string       `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	UserResponse
+	Token string `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
 }
 
 type LoginResponse struct {
-	User  UserResponse `json:"user"`
-	Token string       `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	UserResponse
+	Token string `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
 }
 
 // JWT Claims

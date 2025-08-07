@@ -9,8 +9,8 @@ import (
 
 // Pagination DTOs
 type PaginationQuery struct {
-	Page  int `json:"page" query:"page" example:"1"`
-	Limit int `json:"limit" query:"limit" example:"10"`
+	Page  int `json:"page" query:"page" validate:"omitempty,min=1" example:"1"`
+	Limit int `json:"limit" query:"limit" validate:"omitempty,min=1,max=100" example:"10"`
 }
 
 type PaginationMeta struct {
@@ -22,9 +22,9 @@ type PaginationMeta struct {
 
 // Filter DTOs
 type FilterQuery struct {
-	Search   string            `json:"search" query:"search"`
-	SortBy   string            `json:"sort_by" query:"sort_by"`
-	SortType string            `json:"sort_type" query:"sort_type"`
+	Search   string            `json:"search" query:"search" validate:"omitempty,max=255"`
+	SortBy   string            `json:"sort_by" query:"sort_by" validate:"omitempty,oneof=name email created_at updated_at"`
+	SortType string            `json:"sort_type" query:"sort_type" validate:"omitempty,oneof=asc desc"`
 	Filters  map[string]string `json:"filters" query:"filters"`
 }
 
@@ -32,6 +32,11 @@ type FilterQuery struct {
 type QueryParams struct {
 	*PaginationQuery
 	*FilterQuery
+}
+
+// ID Parameter validation
+type IDParam struct {
+	ID string `param:"id" validate:"required,uuid" example:"123e4567-e89b-12d3-a456-426614174000"`
 }
 
 // ParsePaginationQuery parses pagination parameters from Fiber context

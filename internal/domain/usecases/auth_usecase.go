@@ -2,15 +2,16 @@ package usecases
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/entities"
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/repositories"
 	"github.com/naufalfazanadi/finance-manager-go/internal/dto"
 	"github.com/naufalfazanadi/finance-manager-go/internal/infrastructure/auth"
+	"github.com/naufalfazanadi/finance-manager-go/pkg/encryption"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/helpers"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/logger"
-	"github.com/naufalfazanadi/finance-manager-go/pkg/validator"
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,33 +22,32 @@ type AuthUseCaseInterface interface {
 }
 
 type AuthUseCase struct {
-	userRepo  repositories.UserRepository
-	validator *validator.Validator
+	userRepo repositories.UserRepository
 }
 
-func NewAuthUseCase(userRepo repositories.UserRepository, validator *validator.Validator) AuthUseCaseInterface {
+func NewAuthUseCase(userRepo repositories.UserRepository) AuthUseCaseInterface {
 	return &AuthUseCase{
-		userRepo:  userRepo,
-		validator: validator,
+		userRepo: userRepo,
 	}
 }
 
 func (uc *AuthUseCase) Register(ctx context.Context, req *dto.RegisterRequest) (*dto.AuthResponse, error) {
 	funcCtx := "Register"
 
-	// Validate request
-	if err := uc.validator.Validate(req); err != nil {
-		logger.LogError(funcCtx, "validation failed", err, logrus.Fields{
-			"email": req.Email,
-		})
-		return nil, helpers.NewValidationError("validation failed", err.Error())
+	// Hash the email to check for existing user
+	hashResult := encryption.HashSHA256(req.Email)
+	if hashResult.Error != nil {
+		logger.LogError(funcCtx, "failed to hash email", hashResult.Error, logrus.Fields{"email": req.Email})
+		return nil, helpers.NewInternalError("failed to process email", hashResult.Error.Error())
 	}
 
-	// Check if user already exists
-	existingUser, _ := uc.userRepo.GetByEmail(ctx, req.Email)
+	emailHash := hashResult.Data.(string)
+
+	// Check if user already exists using email hash
+	existingUser, _ := uc.userRepo.GetByEmailHash(ctx, emailHash)
 	if existingUser != nil {
 		logger.LogError(funcCtx, "user already exists during registration", nil, logrus.Fields{
-			"email": req.Email,
+			"email_hash": emailHash,
 		})
 		return nil, helpers.NewConflictError("user with this email already exists", "")
 	}
@@ -56,34 +56,41 @@ func (uc *AuthUseCase) Register(ctx context.Context, req *dto.RegisterRequest) (
 	hashedPassword, err := auth.HashPassword(req.Password)
 	if err != nil {
 		logger.LogError(funcCtx, "failed to hash password", err, logrus.Fields{
-			"email": req.Email,
+			"email_hash": emailHash,
 		})
 		return nil, helpers.NewInternalError("failed to hash password", err.Error())
 	}
 
-	// Set role (default to user if not specified)
-	role := entities.UserRoleUser
-	if req.Role != "" {
-		role = entities.UserRole(req.Role)
+	// Parse birth date from string to time.Time
+	birthDate, err := time.Parse("2006-01-02", req.BirthDate)
+	if err != nil {
+		logger.LogError(funcCtx, "failed to parse birth date", err, logrus.Fields{
+			"birth_date": req.BirthDate,
+		})
+		return nil, helpers.NewBadRequestError("invalid birth date format", "birth date must be in YYYY-MM-DD format")
 	}
+
+	// Set role to default user role (no longer accepting from request)
+	role := entities.UserRoleUser
 
 	// Create user entity
 	user := &entities.User{
-		Email:    req.Email,
-		Name:     req.Name,
-		Password: hashedPassword,
-		Role:     role,
+		Email:     req.Email,  // Set the plain email - it will be encrypted in BeforeCreate hook
+		BirthDate: &birthDate, // Set the parsed birth date - it will be encrypted in BeforeCreate hook
+		Name:      req.Name,
+		Password:  hashedPassword,
+		Role:      role,
 	}
 
 	// Save user
 	if err := uc.userRepo.Create(ctx, user); err != nil {
 		logger.LogError(funcCtx, "failed to create user", err, logrus.Fields{
-			"email": req.Email,
+			"email_hash": emailHash,
 		})
 		return nil, helpers.NewInternalError("failed to create user", err.Error())
 	}
 
-	// Generate JWT token
+	// Generate JWT token (user.Email should be decrypted by AfterFind hook)
 	token, err := auth.GenerateToken(user)
 	if err != nil {
 		logger.LogError(funcCtx, "failed to generate token", err, logrus.Fields{
@@ -92,33 +99,29 @@ func (uc *AuthUseCase) Register(ctx context.Context, req *dto.RegisterRequest) (
 		return nil, helpers.NewInternalError("failed to generate token", err.Error())
 	}
 
-	logger.LogSuccess(funcCtx, "user registered successfully", logrus.Fields{
-		"user_id": user.ID.String(),
-		"email":   user.Email,
-	})
-
 	return &dto.AuthResponse{
-		User:  *uc.mapToUserResponse(user),
-		Token: token,
+		UserResponse: *uc.mapToUserResponse(user),
+		Token:        token,
 	}, nil
 }
 
 func (uc *AuthUseCase) Login(ctx context.Context, req *dto.LoginRequest) (*dto.LoginResponse, error) {
 	funcCtx := "Login"
 
-	// Validate request
-	if err := uc.validator.Validate(req); err != nil {
-		logger.LogError(funcCtx, "validation failed", err, logrus.Fields{
-			"email": req.Email,
-		})
-		return nil, helpers.NewValidationError("validation failed", err.Error())
+	// Hash the email to lookup user
+	hashResult := encryption.HashSHA256(req.Email)
+	if hashResult.Error != nil {
+		logger.LogError(funcCtx, "failed to hash email", hashResult.Error, logrus.Fields{"email": req.Email})
+		return nil, helpers.NewUnauthorizedError("invalid email or password", "")
 	}
 
-	// Get user by email
-	user, err := uc.userRepo.GetByEmail(ctx, req.Email)
+	emailHash := hashResult.Data.(string)
+
+	// Get user by email hash
+	user, err := uc.userRepo.GetByEmailHash(ctx, emailHash)
 	if err != nil {
-		logger.LogError(funcCtx, "failed to get user by email", err, logrus.Fields{
-			"email": req.Email,
+		logger.LogError(funcCtx, "failed to get user by email hash", err, logrus.Fields{
+			"email_hash": emailHash,
 		})
 		return nil, helpers.NewUnauthorizedError("invalid email or password", "")
 	}
@@ -126,7 +129,7 @@ func (uc *AuthUseCase) Login(ctx context.Context, req *dto.LoginRequest) (*dto.L
 	// Check password
 	if err := auth.CheckPassword(user.Password, req.Password); err != nil {
 		logger.LogError(funcCtx, "login attempt with invalid password", nil, logrus.Fields{
-			"email": req.Email,
+			"email_hash": emailHash,
 		})
 		return nil, helpers.NewUnauthorizedError("invalid email or password", "")
 	}
@@ -140,14 +143,9 @@ func (uc *AuthUseCase) Login(ctx context.Context, req *dto.LoginRequest) (*dto.L
 		return nil, helpers.NewInternalError("failed to generate token", err.Error())
 	}
 
-	logger.LogSuccess(funcCtx, "user logged in successfully", logrus.Fields{
-		"user_id": user.ID.String(),
-		"email":   user.Email,
-	})
-
 	return &dto.LoginResponse{
-		User:  *uc.mapToUserResponse(user),
-		Token: token,
+		UserResponse: *uc.mapToUserResponse(user),
+		Token:        token,
 	}, nil
 }
 
@@ -179,6 +177,8 @@ func (uc *AuthUseCase) mapToUserResponse(user *entities.User) *dto.UserResponse 
 		Email:     user.Email,
 		Name:      user.Name,
 		Role:      string(user.Role),
+		BirthDate: user.BirthDate,
+		Age:       user.GetAge(),
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 	}

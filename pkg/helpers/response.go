@@ -62,31 +62,28 @@ func ErrorResponse(c *fiber.Ctx, statusCode int, message string, details interfa
 func HandleError(c *fiber.Ctx, err error, defaultMessage string) error {
 	if IsAppError(err) {
 		appErr := err.(*AppError)
-		return sendErrorByType(c, appErr.Type, appErr.Message, appErr.Details)
+
+		// Map error types to HTTP status codes
+		statusCodeMap := map[ErrorType]int{
+			ErrorTypeValidation:   fiber.StatusBadRequest,
+			ErrorTypeNotFound:     fiber.StatusNotFound,
+			ErrorTypeConflict:     fiber.StatusConflict,
+			ErrorTypeBadRequest:   fiber.StatusBadRequest,
+			ErrorTypeUnauthorized: fiber.StatusUnauthorized,
+			ErrorTypeForbidden:    fiber.StatusForbidden,
+			ErrorTypeInternal:     fiber.StatusInternalServerError,
+		}
+
+		statusCode, exists := statusCodeMap[appErr.Type]
+		if !exists {
+			statusCode = fiber.StatusInternalServerError
+		}
+
+		return ErrorResponse(c, statusCode, appErr.Message, appErr.Details)
 	}
 
 	// Handle non-AppError types
 	return InternalServerErrorResponse(c, defaultMessage, err.Error())
-}
-
-// sendErrorByType is a helper function that maps error types to HTTP status codes
-func sendErrorByType(c *fiber.Ctx, errorType ErrorType, message string, details interface{}) error {
-	statusCodeMap := map[ErrorType]int{
-		ErrorTypeValidation:   fiber.StatusBadRequest,
-		ErrorTypeNotFound:     fiber.StatusNotFound,
-		ErrorTypeConflict:     fiber.StatusConflict,
-		ErrorTypeBadRequest:   fiber.StatusBadRequest,
-		ErrorTypeUnauthorized: fiber.StatusUnauthorized,
-		ErrorTypeForbidden:    fiber.StatusForbidden,
-		ErrorTypeInternal:     fiber.StatusInternalServerError,
-	}
-
-	statusCode, exists := statusCodeMap[errorType]
-	if !exists {
-		statusCode = fiber.StatusInternalServerError
-	}
-
-	return ErrorResponse(c, statusCode, message, details)
 }
 
 // Specific error response functions with uniform parameters

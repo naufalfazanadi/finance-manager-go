@@ -9,8 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// Container holds all application dependencies
-type Container struct {
+// ServiceContainer holds all application dependencies
+type ServiceContainer struct {
 	// Core dependencies
 	DB        *gorm.DB
 	Validator *validator.Validator
@@ -30,23 +30,23 @@ type Container struct {
 	AuthHandler *handlers.AuthHandler
 }
 
-// NewContainer creates and initializes all application dependencies
-func NewContainer(db *gorm.DB, validator *validator.Validator) *Container {
+// NewServiceContainer creates and initializes all application dependencies
+func NewServiceContainer(db *gorm.DB, validator *validator.Validator) *ServiceContainer {
 	// Initialize repositories
 	userRepo := repositories.NewUserRepository(db)
 
 	// Initialize middleware
-	authMiddleware := middleware.NewAuthMiddleware()
+	authMiddleware := middleware.NewAuthMiddleware(userRepo)
 
 	// Initialize use cases
-	userUseCase := usecases.NewUserUseCase(userRepo, validator)
-	authUseCase := usecases.NewAuthUseCase(userRepo, validator)
+	userUseCase := usecases.NewUserUseCase(userRepo)
+	authUseCase := usecases.NewAuthUseCase(userRepo)
 
 	// Initialize handlers
-	userHandler := handlers.NewUserHandler(userUseCase)
-	authHandler := handlers.NewAuthHandler(authUseCase)
+	userHandler := handlers.NewUserHandler(userUseCase, validator)
+	authHandler := handlers.NewAuthHandler(authUseCase, validator)
 
-	return &Container{
+	return &ServiceContainer{
 		DB:             db,
 		Validator:      validator,
 		UserRepo:       userRepo,
@@ -59,26 +59,31 @@ func NewContainer(db *gorm.DB, validator *validator.Validator) *Container {
 }
 
 // GetUserHandler returns the user handler
-func (c *Container) GetUserHandler() *handlers.UserHandler {
-	return c.UserHandler
+func (sc *ServiceContainer) GetUserHandler() *handlers.UserHandler {
+	return sc.UserHandler
 }
 
 // GetAuthHandler returns the auth handler
-func (c *Container) GetAuthHandler() *handlers.AuthHandler {
-	return c.AuthHandler
+func (sc *ServiceContainer) GetAuthHandler() *handlers.AuthHandler {
+	return sc.AuthHandler
 }
 
 // GetAuthMiddleware returns the auth middleware
-func (c *Container) GetAuthMiddleware() *middleware.AuthMiddleware {
-	return c.AuthMiddleware
+func (sc *ServiceContainer) GetAuthMiddleware() *middleware.AuthMiddleware {
+	return sc.AuthMiddleware
 }
 
 // GetUserUseCase returns the user use case
-func (c *Container) GetUserUseCase() usecases.UserUseCaseInterface {
-	return c.UserUseCase
+func (sc *ServiceContainer) GetUserUseCase() usecases.UserUseCaseInterface {
+	return sc.UserUseCase
 }
 
 // GetAuthUseCase returns the auth use case
-func (c *Container) GetAuthUseCase() usecases.AuthUseCaseInterface {
-	return c.AuthUseCase
+func (sc *ServiceContainer) GetAuthUseCase() usecases.AuthUseCaseInterface {
+	return sc.AuthUseCase
+}
+
+// GetDB returns the database instance
+func (sc *ServiceContainer) GetDB() *gorm.DB {
+	return sc.DB
 }
