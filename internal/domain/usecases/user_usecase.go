@@ -2,6 +2,10 @@ package usecases
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/entities"
@@ -11,14 +15,16 @@ import (
 	"github.com/naufalfazanadi/finance-manager-go/pkg/encryption"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/helpers"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/logger"
+	"github.com/naufalfazanadi/finance-manager-go/pkg/minio"
+	"github.com/naufalfazanadi/finance-manager-go/pkg/upload"
 	"github.com/sirupsen/logrus"
 )
 
 type UserUseCaseInterface interface {
-	CreateUser(ctx context.Context, req *dto.CreateUserRequest) (*dto.UserResponse, error)
+	CreateUser(ctx context.Context, req *dto.CreateUserRequest, profilePhoto *multipart.FileHeader) (*dto.UserResponse, error)
 	GetUser(ctx context.Context, id string) (*dto.UserResponse, error)
 	GetUsers(ctx context.Context, queryParams *dto.QueryParams) (*dto.UsersResponse, error)
-	UpdateUser(ctx context.Context, id string, req *dto.UpdateUserRequest) (*dto.UserResponse, error)
+	UpdateUser(ctx context.Context, id string, req *dto.UpdateUserRequest, profilePhoto *multipart.FileHeader) (*dto.UserResponse, error)
 	DeleteUser(ctx context.Context, id string) error // This now does soft delete
 	// Soft delete methods
 	RestoreUser(ctx context.Context, id string) error
@@ -37,7 +43,7 @@ func NewUserUseCase(userRepo repositories.UserRepository) UserUseCaseInterface {
 	}
 }
 
-func (uc *UserUseCase) CreateUser(ctx context.Context, req *dto.CreateUserRequest) (*dto.UserResponse, error) {
+func (uc *UserUseCase) CreateUser(ctx context.Context, req *dto.CreateUserRequest, profilePhoto *multipart.FileHeader) (*dto.UserResponse, error) {
 	funcCtx := "CreateUser"
 
 	// Hash the email to check for existing user
@@ -66,17 +72,35 @@ func (uc *UserUseCase) CreateUser(ctx context.Context, req *dto.CreateUserReques
 	// Set role to default user role (no longer accepting from request)
 	role := entities.UserRoleUser
 
+	// Upload profile photo first if provided
+	var profilePhotoPath string
+	if profilePhoto != nil {
+		var err error
+		profilePhotoPath, err = uc.uploadProfilePhoto(profilePhoto)
+		if err != nil {
+			logger.LogError(funcCtx, "failed to upload profile photo", err, logrus.Fields{"email": req.Email})
+			return nil, helpers.NewInternalError("failed to upload profile photo", err.Error())
+		}
+	}
+
 	// Create user entity
 	user := &entities.User{
-		Email:     req.Email,     // Set the plain email - it will be encrypted in BeforeCreate hook
-		BirthDate: req.BirthDate, // Set the birth date - it will be encrypted in BeforeCreate hook
-		Name:      req.Name,
-		Password:  hashedPassword,
-		Role:      role,
+		Email:        req.Email,     // Set the plain email - it will be encrypted in BeforeCreate hook
+		BirthDate:    req.BirthDate, // Set the birth date - it will be encrypted in BeforeCreate hook
+		Name:         req.Name,
+		Password:     hashedPassword,
+		Role:         role,
+		ProfilePhoto: profilePhotoPath,
 	}
 
 	// Save user
 	if err := uc.userRepo.Create(ctx, user); err != nil {
+		// Revert profile photo upload if user creation fails
+		if profilePhotoPath != "" {
+			if revertErr := uc.revertProfilePhotoUpload(profilePhotoPath); revertErr != nil {
+				logger.LogError(funcCtx, "failed to revert profile photo upload", revertErr, logrus.Fields{"photo_path": profilePhotoPath})
+			}
+		}
 		logger.LogError(funcCtx, "failed to create user", err, logrus.Fields{"email_hash": emailHash})
 		return nil, helpers.NewInternalError("failed to create user", err.Error())
 	}
@@ -132,7 +156,7 @@ func (uc *UserUseCase) GetUsers(ctx context.Context, queryParams *dto.QueryParam
 	}, nil
 }
 
-func (uc *UserUseCase) UpdateUser(ctx context.Context, id string, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
+func (uc *UserUseCase) UpdateUser(ctx context.Context, id string, req *dto.UpdateUserRequest, profilePhoto *multipart.FileHeader) (*dto.UserResponse, error) {
 	funcCtx := "UpdateUser"
 
 	userID, err := uuid.Parse(id)
@@ -152,6 +176,22 @@ func (uc *UserUseCase) UpdateUser(ctx context.Context, id string, req *dto.Updat
 		return nil, helpers.NewNotFoundError("user not found", "")
 	}
 
+	// Upload profile photo if provided
+	var oldProfilePhoto string
+	var newProfilePhotoPath string
+	if profilePhoto != nil {
+		// Store old profile photo path for cleanup if needed
+		oldProfilePhoto = user.ProfilePhoto
+
+		var err error
+		newProfilePhotoPath, err = uc.uploadProfilePhoto(profilePhoto)
+		if err != nil {
+			logger.LogError(funcCtx, "failed to upload profile photo", err, logrus.Fields{"user_id": id})
+			return nil, helpers.NewInternalError("failed to upload profile photo", err.Error())
+		}
+		user.ProfilePhoto = newProfilePhotoPath
+	}
+
 	// Update fields
 	if req.Name != "" {
 		user.Name = req.Name
@@ -162,10 +202,27 @@ func (uc *UserUseCase) UpdateUser(ctx context.Context, id string, req *dto.Updat
 
 	// Save updated user
 	if err := uc.userRepo.Update(ctx, user); err != nil {
+		// Revert new profile photo upload if user update fails
+		if newProfilePhotoPath != "" {
+			if revertErr := uc.revertProfilePhotoUpload(newProfilePhotoPath); revertErr != nil {
+				logger.LogError(funcCtx, "failed to revert profile photo upload", revertErr, logrus.Fields{"photo_path": newProfilePhotoPath})
+			}
+		}
 		logger.LogError(funcCtx, "failed to update user", err, logrus.Fields{
 			"user_id": id,
 		})
 		return nil, helpers.NewInternalError("failed to update user", err.Error())
+	}
+
+	// Clean up old profile photo after successful update (only if a new one was uploaded)
+	if newProfilePhotoPath != "" && oldProfilePhoto != "" && oldProfilePhoto != newProfilePhotoPath {
+		if cleanupErr := uc.revertProfilePhotoUpload(oldProfilePhoto); cleanupErr != nil {
+			// Log the error but don't fail the request since the user update was successful
+			logger.LogError(funcCtx, "failed to cleanup old profile photo", cleanupErr, logrus.Fields{
+				"user_id":        id,
+				"old_photo_path": oldProfilePhoto,
+			})
+		}
 	}
 
 	return uc.mapToUserResponse(user), nil
@@ -204,14 +261,15 @@ func (uc *UserUseCase) DeleteUser(ctx context.Context, id string) error {
 
 func (uc *UserUseCase) mapToUserResponse(user *entities.User) *dto.UserResponse {
 	return &dto.UserResponse{
-		ID:        user.ID,
-		Email:     user.Email,
-		Name:      user.Name,
-		Role:      string(user.Role),
-		BirthDate: user.BirthDate,
-		Age:       user.GetAge(),
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		ID:           user.ID,
+		Email:        user.Email,
+		Name:         user.Name,
+		Role:         string(user.Role),
+		BirthDate:    user.BirthDate,
+		Age:          user.GetAge(),
+		ProfilePhoto: user.GetProfilePhotoURL(),
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
 	}
 }
 
@@ -327,6 +385,75 @@ func (uc *UserUseCase) HardDeleteUser(ctx context.Context, id string) error {
 			"user_id": id,
 		})
 		return helpers.NewInternalError("failed to hard delete user", err.Error())
+	}
+
+	return nil
+}
+
+// uploadProfilePhoto handles the profile photo upload to minio
+func (uc *UserUseCase) uploadProfilePhoto(fileHeader *multipart.FileHeader) (string, error) {
+	if fileHeader == nil {
+		return "", nil
+	}
+
+	// Open the uploaded file
+	file, err := fileHeader.Open()
+	if err != nil {
+		return "", fmt.Errorf("failed to open uploaded file: %w", err)
+	}
+	defer file.Close()
+
+	// Read file content
+	fileContent, err := io.ReadAll(file)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file content: %w", err)
+	}
+
+	// Get file extension based on content type
+	contentType := upload.GetFileExtension(upload.DetectContentType(fileContent))
+	if contentType == "" {
+		contentType = ".jpg" // fallback
+	}
+
+	// Generate unique filename with timestamp
+	timestamp := time.Now().Unix()
+	now := time.Now()
+	folder := fmt.Sprintf("profile-photo/%d/%02d", now.Year(), now.Month())
+	filename := fmt.Sprintf("profile_photo_%d%s", timestamp, contentType)
+
+	// Initialize minio client
+	minioClient, err := minio.NewClient()
+	if err != nil {
+		return "", fmt.Errorf("failed to initialize minio client: %w", err)
+	}
+
+	// Upload to minio (public bucket for profile photos)
+	uploadResult, err := minioClient.UploadPublic(context.Background(), minio.UploadPublicDto{
+		OriginalName: fileHeader.Filename,
+		Folder:       folder,
+		FileName:     filename,
+		File:         fileContent,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to upload to minio: %w", err)
+	}
+
+	return uploadResult.Path, nil
+}
+
+// Revert profile photo upload if user creation fails
+func (uc *UserUseCase) revertProfilePhotoUpload(photoPath string) error {
+	if photoPath == "" {
+		return nil // Nothing to revert
+	}
+
+	minioClient, err := minio.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to initialize minio client: %w", err)
+	}
+
+	if err := minioClient.RemoveObjectByPath(context.Background(), photoPath); err != nil {
+		return fmt.Errorf("failed to delete profile photo from minio: %w", err)
 	}
 
 	return nil

@@ -721,6 +721,130 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/users/{id}/profile-photo": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload a profile photo for a user (JPG/PNG only, max 2MB)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Upload profile photo for user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Profile photo file (JPG/PNG, max 2MB)",
+                        "name": "profile_photo",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.UploadProfilePhotoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "File too large",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete the profile photo for a user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Delete profile photo for user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"message\": \"Profile photo deleted successfully\"}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/users/{id}/restore": {
             "patch": {
                 "security": [
@@ -796,6 +920,14 @@ const docTemplate = `{
                     "type": "string",
                     "example": "John Doe"
                 },
+                "profile_photo_file_name": {
+                    "type": "string",
+                    "example": "profile-photo/2024/01/profile_photo_1234567890_user123.jpg"
+                },
+                "profile_photo_url": {
+                    "type": "string",
+                    "example": "https://minio.example.com/public/profile-photo/2024/01/profile_photo_1234567890_user123.jpg"
+                },
                 "role": {
                     "type": "string",
                     "example": "user"
@@ -837,6 +969,10 @@ const docTemplate = `{
                     "maxLength": 100,
                     "minLength": 8,
                     "example": "password123"
+                },
+                "profile_photo_file_name": {
+                    "type": "string",
+                    "example": "profile-photo/2024/01/profile_photo_1234567890_user123.jpg"
                 }
             }
         },
@@ -900,6 +1036,14 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "John Doe"
+                },
+                "profile_photo_file_name": {
+                    "type": "string",
+                    "example": "profile-photo/2024/01/profile_photo_1234567890_user123.jpg"
+                },
+                "profile_photo_url": {
+                    "type": "string",
+                    "example": "https://minio.example.com/public/profile-photo/2024/01/profile_photo_1234567890_user123.jpg"
                 },
                 "role": {
                     "type": "string",
@@ -979,6 +1123,27 @@ const docTemplate = `{
                     "maxLength": 100,
                     "minLength": 2,
                     "example": "John Doe Updated"
+                },
+                "profile_photo_file_name": {
+                    "type": "string",
+                    "example": "profile-photo/2024/01/profile_photo_1234567890_user123.jpg"
+                }
+            }
+        },
+        "dto.UploadProfilePhotoResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Profile photo uploaded successfully"
+                },
+                "profile_photo_file_name": {
+                    "type": "string",
+                    "example": "profile-photo/2024/01/profile_photo_1234567890_user123.jpg"
+                },
+                "profile_photo_url": {
+                    "type": "string",
+                    "example": "https://minio.example.com/public/profile-photo/2024/01/profile_photo_1234567890_user123.jpg"
                 }
             }
         },
@@ -1008,6 +1173,14 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "John Doe"
+                },
+                "profile_photo_file_name": {
+                    "type": "string",
+                    "example": "profile-photo/2024/01/profile_photo_1234567890_user123.jpg"
+                },
+                "profile_photo_url": {
+                    "type": "string",
+                    "example": "https://minio.example.com/public/profile-photo/2024/01/profile_photo_1234567890_user123.jpg"
                 },
                 "role": {
                     "type": "string",

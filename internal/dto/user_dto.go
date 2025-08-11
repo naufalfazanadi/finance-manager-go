@@ -12,23 +12,26 @@ type CreateUserRequest struct {
 	Name      string     `json:"name" validate:"required,min=2,max=100" example:"John Doe"`
 	Password  string     `json:"password" validate:"required,min=8,max=100" example:"password123"`
 	BirthDate *time.Time `json:"birth_date,omitempty" example:"1990-01-15T00:00:00Z"`
+	// Note: ProfilePhoto is handled separately in multipart form
 }
 
 type UpdateUserRequest struct {
 	Name      string     `json:"name" validate:"omitempty,min=2,max=100" example:"John Doe Updated"`
 	BirthDate *time.Time `json:"birth_date,omitempty" example:"1990-01-15T00:00:00Z"`
+	// Note: ProfilePhoto is handled separately in multipart form
 }
 
 // Response DTOs
 type UserResponse struct {
-	ID        uuid.UUID  `json:"id" example:"123e4567-e89b-12d3-a456-426614174000"`
-	Email     string     `json:"email" example:"user@example.com"`
-	Name      string     `json:"name" example:"John Doe"`
-	Role      string     `json:"role" example:"user"`
-	BirthDate *time.Time `json:"birth_date,omitempty" example:"1990-01-15T00:00:00Z"`
-	Age       *int       `json:"age,omitempty" example:"33"`
-	CreatedAt time.Time  `json:"created_at" example:"2023-01-01T00:00:00Z"`
-	UpdatedAt time.Time  `json:"updated_at" example:"2023-01-01T00:00:00Z"`
+	ID           uuid.UUID  `json:"id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Email        string     `json:"email" example:"user@example.com"`
+	Name         string     `json:"name" example:"John Doe"`
+	Role         string     `json:"role" example:"user"`
+	BirthDate    *time.Time `json:"birth_date,omitempty" example:"1990-01-15T00:00:00Z"`
+	Age          *int       `json:"age,omitempty" example:"33"`
+	ProfilePhoto string     `json:"profile_photo,omitempty" example:"https://minio.example.com/public/profile-photo/2023/01/profile_photo_1641024000.jpg"`
+	CreatedAt    time.Time  `json:"created_at" example:"2023-01-01T00:00:00Z"`
+	UpdatedAt    time.Time  `json:"updated_at" example:"2023-01-01T00:00:00Z"`
 }
 
 type UsersResponse struct {

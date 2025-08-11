@@ -17,12 +17,12 @@ func UserRoutes(api fiber.Router, dependencies *container.ServiceContainer) {
 	users := v1.Group("/users")
 
 	// Public routes (no authentication required)
-	users.Post("/", userHandler.CreateUser) // Create user (signup)
+	users.Post("/", userHandler.CreateUser) // Create user (signup) - supports both JSON and multipart with optional photo
 
 	// Protected routes (authentication required)
 	users.Get("/", authMiddleware.JWTAuth(), userHandler.GetUsers)                                    // Get all users (user/admin)
 	users.Get("/:id", authMiddleware.JWTAuth(), userHandler.GetUser)                                  // Get user by ID (user/admin)
-	users.Put("/:id", authMiddleware.JWTAuth(), userHandler.UpdateUser)                               // Update user (user/admin)
+	users.Put("/:id", authMiddleware.JWTAuth(), userHandler.UpdateUser)                               // Update user (user/admin) - supports both JSON and multipart with optional photo
 	users.Delete("/:id", authMiddleware.JWTAuth(), middleware.RequireAdmin(), userHandler.DeleteUser) // Soft delete user (admin only)
 
 	// Soft delete management routes (admin only)

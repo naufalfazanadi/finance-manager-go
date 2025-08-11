@@ -20,6 +20,12 @@ definitions:
       name:
         example: John Doe
         type: string
+      profile_photo_file_name:
+        example: profile-photo/2024/01/profile_photo_1234567890_user123.jpg
+        type: string
+      profile_photo_url:
+        example: https://minio.example.com/public/profile-photo/2024/01/profile_photo_1234567890_user123.jpg
+        type: string
       role:
         example: user
         type: string
@@ -47,6 +53,9 @@ definitions:
         example: password123
         maxLength: 100
         minLength: 8
+        type: string
+      profile_photo_file_name:
+        example: profile-photo/2024/01/profile_photo_1234567890_user123.jpg
         type: string
     required:
     - email
@@ -96,6 +105,12 @@ definitions:
         type: string
       name:
         example: John Doe
+        type: string
+      profile_photo_file_name:
+        example: profile-photo/2024/01/profile_photo_1234567890_user123.jpg
+        type: string
+      profile_photo_url:
+        example: https://minio.example.com/public/profile-photo/2024/01/profile_photo_1234567890_user123.jpg
         type: string
       role:
         example: user
@@ -156,6 +171,21 @@ definitions:
         maxLength: 100
         minLength: 2
         type: string
+      profile_photo_file_name:
+        example: profile-photo/2024/01/profile_photo_1234567890_user123.jpg
+        type: string
+    type: object
+  dto.UploadProfilePhotoResponse:
+    properties:
+      message:
+        example: Profile photo uploaded successfully
+        type: string
+      profile_photo_file_name:
+        example: profile-photo/2024/01/profile_photo_1234567890_user123.jpg
+        type: string
+      profile_photo_url:
+        example: https://minio.example.com/public/profile-photo/2024/01/profile_photo_1234567890_user123.jpg
+        type: string
     type: object
   dto.UserResponse:
     properties:
@@ -176,6 +206,12 @@ definitions:
         type: string
       name:
         example: John Doe
+        type: string
+      profile_photo_file_name:
+        example: profile-photo/2024/01/profile_photo_1234567890_user123.jpg
+        type: string
+      profile_photo_url:
+        example: https://minio.example.com/public/profile-photo/2024/01/profile_photo_1234567890_user123.jpg
         type: string
       role:
         example: user
@@ -572,6 +608,86 @@ paths:
       security:
       - BearerAuth: []
       summary: Permanently delete user by ID
+      tags:
+      - users
+  /v1/users/{id}/profile-photo:
+    delete:
+      consumes:
+      - application/json
+      description: Delete the profile photo for a user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{"message": "Profile photo deleted successfully"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete profile photo for user
+      tags:
+      - users
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a profile photo for a user (JPG/PNG only, max 2MB)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Profile photo file (JPG/PNG, max 2MB)
+        in: formData
+        name: profile_photo
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UploadProfilePhotoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "413":
+          description: File too large
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Upload profile photo for user
       tags:
       - users
   /v1/users/{id}/restore:

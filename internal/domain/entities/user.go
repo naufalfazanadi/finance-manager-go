@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/naufalfazanadi/finance-manager-go/pkg/config"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/encryption"
+	"github.com/naufalfazanadi/finance-manager-go/pkg/minio"
 	"gorm.io/gorm"
 )
 
@@ -27,6 +29,7 @@ type User struct {
 	Name               string         `json:"name" gorm:"not null"`
 	Password           string         `json:"-" gorm:"not null"`
 	Role               UserRole       `json:"role" gorm:"type:varchar(20);not null;default:'user'"`
+	ProfilePhoto       string         `json:"profile_photo" gorm:"column:profile_photo"`
 	CreatedAt          time.Time      `json:"created_at"`
 	UpdatedAt          time.Time      `json:"updated_at"`
 	DeletedAt          gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
@@ -68,6 +71,17 @@ func (u *User) GetAge() *int {
 	}
 
 	return &age
+}
+
+// GetProfilePhotoURL returns the full URL for the profile photo
+func (u *User) GetProfilePhotoURL() string {
+	if u.ProfilePhoto == "" {
+		return ""
+	}
+
+	// Get config and use public bucket for profile photos
+	cfg := config.GetConfig()
+	return minio.GetFullUrl(cfg.Minio.PublicBucket, u.ProfilePhoto)
 }
 
 // SoftDelete marks the user as deleted (sets DeletedAt timestamp)

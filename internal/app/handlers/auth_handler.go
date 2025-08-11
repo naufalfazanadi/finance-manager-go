@@ -36,12 +36,12 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 
 	// Use strict JSON parsing that rejects unknown fields
 	if err := h.validator.ParseJSONStrict(c, &req); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid request body", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid request body", err.Error()), "Invalid request body")
 	}
 
 	// Validate request
 	if err := h.validator.Validate(&req); err != nil {
-		return helpers.BadRequestResponse(c, "Validation failed", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Validation failed", err.Error()), "Validation failed")
 	}
 
 	result, err := h.authUseCase.Register(c.Context(), &req)
@@ -66,12 +66,12 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 	if err := h.validator.ParseJSONStrict(c, &req); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid request body", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid request body", err.Error()), "Invalid request body")
 	}
 
 	// Validate request
 	if err := h.validator.Validate(&req); err != nil {
-		return helpers.BadRequestResponse(c, "Validation failed", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Validation failed", err.Error()), "Validation failed")
 	}
 
 	result, err := h.authUseCase.Login(c.Context(), &req)
@@ -96,18 +96,18 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 func (h *AuthHandler) GetProfile(c *fiber.Ctx) error {
 	userID := c.Locals("userID")
 	if userID == nil {
-		return helpers.UnauthorizedResponse(c, "Unauthorized", "User ID not found in token")
+		return helpers.HandleError(c, helpers.NewUnauthorizedError("Unauthorized", "User ID not found in token"), "Unauthorized")
 	}
 
 	userIDStr, ok := userID.(string)
 	if !ok {
-		return helpers.UnauthorizedResponse(c, "Unauthorized", "Invalid user ID format in token")
+		return helpers.HandleError(c, helpers.NewUnauthorizedError("Unauthorized", "Invalid user ID format in token"), "Unauthorized")
 	}
 
 	// Validate user ID format
 	idParam := dto.IDParam{ID: userIDStr}
 	if err := h.validator.Validate(&idParam); err != nil {
-		return helpers.UnauthorizedResponse(c, "Unauthorized", "Invalid user ID format in token")
+		return helpers.HandleError(c, helpers.NewUnauthorizedError("Unauthorized", "Invalid user ID format in token"), "Unauthorized")
 	}
 
 	result, err := h.authUseCase.GetProfile(c.Context(), userIDStr)

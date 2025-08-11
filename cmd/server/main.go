@@ -44,7 +44,7 @@ func main() {
 	if appEnv == "staging" || appEnv == "production" {
 		tracer.Start(
 			tracer.WithEnv(appEnv),
-			tracer.WithServiceName("fabd-core-revenue-service"),
+			tracer.WithServiceName("finance-manager-service"),
 		)
 
 		defer tracer.Stop()

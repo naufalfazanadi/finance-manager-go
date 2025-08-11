@@ -10,6 +10,7 @@ import (
 	"github.com/naufalfazanadi/finance-manager-go/internal/dto"
 	"github.com/naufalfazanadi/finance-manager-go/internal/infrastructure/auth"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/config"
+	"github.com/naufalfazanadi/finance-manager-go/pkg/helpers"
 )
 
 // AuthMiddleware wraps authentication services
@@ -53,10 +54,7 @@ func (am *AuthMiddleware) JWTAuth() fiber.Handler {
 		// Get the Authorization header
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(&dto.ErrorResponse{
-				Error:   "Unauthorized",
-				Message: "Authorization header is required",
-			})
+			return helpers.HandleError(c, helpers.NewUnauthorizedError("Unauthorized", "Authorization header is required"), "Authorization header is required")
 		}
 
 		// Extract token from header with improved parsing
@@ -74,19 +72,13 @@ func (am *AuthMiddleware) JWTAuth() fiber.Handler {
 
 		// Validate that we have a token
 		if token == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(&dto.ErrorResponse{
-				Error:   "Unauthorized",
-				Message: "Empty token provided",
-			})
+			return helpers.HandleError(c, helpers.NewUnauthorizedError("Unauthorized", "Empty token provided"), "Empty token provided")
 		}
 
 		// Validate token with database check
 		claims, err := auth.ValidateTokenWithDB(c.Context(), token, am.userRepo)
 		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(&dto.ErrorResponse{
-				Error:   "Unauthorized",
-				Message: "Invalid or expired token: " + err.Error(),
-			})
+			return helpers.HandleError(c, helpers.NewUnauthorizedError("Unauthorized", "Invalid or expired token: "+err.Error()), "Invalid or expired token")
 		}
 
 		// Set user information in context
@@ -104,10 +96,7 @@ func RequireRole(roles ...entities.UserRole) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userRole := c.Locals("userRole")
 		if userRole == nil {
-			return c.Status(fiber.StatusForbidden).JSON(&dto.ErrorResponse{
-				Error:   "Forbidden",
-				Message: "User role not found",
-			})
+			return helpers.HandleError(c, helpers.NewForbiddenError("Forbidden", "User role not found"), "User role not found")
 		}
 
 		currentRole := entities.UserRole(userRole.(string))
@@ -119,10 +108,7 @@ func RequireRole(roles ...entities.UserRole) fiber.Handler {
 			}
 		}
 
-		return c.Status(fiber.StatusForbidden).JSON(&dto.ErrorResponse{
-			Error:   "Forbidden",
-			Message: "Insufficient permissions",
-		})
+		return helpers.HandleError(c, helpers.NewForbiddenError("Forbidden", "Insufficient permissions"), "Insufficient permissions")
 	}
 }
 

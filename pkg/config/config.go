@@ -34,6 +34,7 @@ type Config struct {
 	App      AppConfig
 	JWT      JWTConfig
 	CORS     CORSConfig
+	Minio    MinioConfig
 }
 
 type ServerConfig struct {
@@ -57,13 +58,25 @@ type CORSConfig struct {
 	AllowHeaders string
 }
 
+type MinioConfig struct {
+	Endpoint      string
+	AccessKey     string
+	SecretKey     string
+	UseSSL        bool
+	PrivateBucket string
+	PublicBucket  string
+	Directory     string
+}
+
+var globalConfig *Config
+
 func LoadConfig() *Config {
 	// Load .env file
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: .env file not found")
 	}
 
-	return &Config{
+	globalConfig = &Config{
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     getEnv("DB_PORT", "5432"),
@@ -100,7 +113,25 @@ func LoadConfig() *Config {
 			AllowMethods: getEnv("CORS_ALLOW_METHODS", "GET,POST,PUT,DELETE,OPTIONS"),
 			AllowHeaders: getEnv("CORS_ALLOW_HEADERS", "Origin,Content-Type,Accept,Authorization"),
 		},
+		Minio: MinioConfig{
+			Endpoint:      getEnv("MINIO_ENDPOINT", "localhost:9000"),
+			AccessKey:     getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+			SecretKey:     getEnv("MINIO_SECRET_KEY", "minioadmin"),
+			UseSSL:        getEnvAsBool("MINIO_USE_SSL", false),
+			PrivateBucket: getEnv("MINIO_PRIVATE_BUCKET", "private"),
+			PublicBucket:  getEnv("MINIO_PUBLIC_BUCKET", "public"),
+			Directory:     getEnv("MINIO_DIRECTORY", "finance-manager"),
+		},
 	}
+
+	return globalConfig
+}
+
+func GetConfig() *Config {
+	if globalConfig == nil {
+		return LoadConfig()
+	}
+	return globalConfig
 }
 
 func getEnv(key, fallback string) string {
@@ -116,6 +147,16 @@ func getEnvAsInt(key string, fallback int) int {
 			return intVal
 		}
 		log.Printf("Warning: Invalid integer value for %s: %s, using fallback: %d", key, value, fallback)
+	}
+	return fallback
+}
+
+func getEnvAsBool(key string, fallback bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolVal, err := strconv.ParseBool(value); err == nil {
+			return boolVal
+		}
+		log.Printf("Warning: Invalid boolean value for %s: %s, using fallback: %t", key, value, fallback)
 	}
 	return fallback
 }

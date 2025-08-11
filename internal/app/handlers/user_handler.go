@@ -23,27 +23,40 @@ func NewUserHandler(userUseCase usecases.UserUseCaseInterface, validator *valida
 
 // CreateUser godoc
 // @Summary Create a new user
-// @Description Create a new user with email, name, and password
+// @Description Create a new user with email, name, password and optional profile photo using form data.
 // @Tags users
-// @Accept json
+// @Accept multipart/form-data
 // @Produce json
-// @Param user body dto.CreateUserRequest true "User data"
+// @Param email formData string true "Email"
+// @Param name formData string true "Name"
+// @Param password formData string true "Password"
+// @Param birth_date formData string false "Birth Date (RFC3339 format)"
+// @Param profile_photo formData file false "Profile Photo (JPG/PNG, max 2MB)"
 // @Success 201 {object} dto.UserResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 409 {object} dto.ErrorResponse
 // @Router /v1/users [post]
 func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
-	var req dto.CreateUserRequest
-	if err := h.validator.ParseJSONStrict(c, &req); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid request body", err.Error())
+	// Handle form data with optional photo
+	req := &dto.CreateUserRequest{}
+	config := validator.FormValidationConfig{
+		RequiredFields: []string{"email", "name", "password"},
+		OptionalFields: []string{"birth_date"},
+		FileFields:     []string{"profile_photo"},
+		ValidateFiles:  true,
 	}
 
-	// Validate request
-	if err := h.validator.Validate(&req); err != nil {
-		return helpers.BadRequestResponse(c, "Validation failed", err.Error())
+	formResult, err := h.validator.ValidateForm(c, req, config)
+	if err != nil {
+		return helpers.HandleError(c, err, "Form validation failed")
 	}
 
-	user, err := h.userUseCase.CreateUser(c.Context(), &req)
+	// Get the validated DTO and profile photo
+	createReq := formResult.Data.(*dto.CreateUserRequest)
+	profilePhoto := formResult.Files["profile_photo"]
+
+	// Create user with optional profile photo
+	user, err := h.userUseCase.CreateUser(c.Context(), createReq, profilePhoto)
 	if err != nil {
 		return helpers.HandleError(c, err, "User creation failed")
 	}
@@ -67,13 +80,13 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return helpers.BadRequestResponse(c, "User ID is required", "ID parameter is missing")
+		return helpers.HandleError(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
 	}
 
 	// Validate ID format
 	idParam := dto.IDParam{ID: id}
 	if err := h.validator.Validate(&idParam); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid user ID format", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid user ID format", err.Error()), "Invalid user ID format")
 	}
 
 	user, err := h.userUseCase.GetUser(c.Context(), id)
@@ -106,10 +119,10 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 
 	// Validate query parameters
 	if err := h.validator.Validate(queryParams.PaginationQuery); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid pagination parameters", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid pagination parameters", err.Error()), "Invalid pagination parameters")
 	}
 	if err := h.validator.Validate(queryParams.FilterQuery); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid filter parameters", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid filter parameters", err.Error()), "Invalid filter parameters")
 	}
 
 	users, err := h.userUseCase.GetUsers(c.Context(), queryParams)
@@ -122,12 +135,14 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 
 // UpdateUser godoc
 // @Summary Update user
-// @Description Update user information
+// @Description Update user information with optional profile photo using form data.
 // @Tags users
-// @Accept json
+// @Accept multipart/form-data
 // @Produce json
 // @Param id path string true "User ID"
-// @Param user body dto.UpdateUserRequest true "User data"
+// @Param name formData string false "Name"
+// @Param birth_date formData string false "Birth Date (RFC3339 format)"
+// @Param profile_photo formData file false "Profile Photo (JPG/PNG, max 2MB)"
 // @Success 200 {object} dto.UserResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 401 {object} dto.ErrorResponse
@@ -137,26 +152,35 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return helpers.BadRequestResponse(c, "User ID is required", "ID parameter is missing")
+		return helpers.HandleError(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
 	}
 
 	// Validate ID format
 	idParam := dto.IDParam{ID: id}
 	if err := h.validator.Validate(&idParam); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid user ID format", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid user ID format", err.Error()), "Invalid user ID format")
 	}
 
-	var req dto.UpdateUserRequest
-	if err := h.validator.ParseJSONStrict(c, &req); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid request body", err.Error())
+	// Handle form data with optional photo
+	req := &dto.UpdateUserRequest{}
+	config := validator.FormValidationConfig{
+		OptionalFields:   []string{"name", "birth_date"},
+		FileFields:       []string{"profile_photo"},
+		ValidateFiles:    true,
+		AllowEmptyUpdate: true,
 	}
 
-	// Validate request
-	if err := h.validator.Validate(&req); err != nil {
-		return helpers.BadRequestResponse(c, "Validation failed", err.Error())
+	formResult, err := h.validator.ValidateForm(c, req, config)
+	if err != nil {
+		return helpers.HandleError(c, err, "Form validation failed")
 	}
 
-	user, err := h.userUseCase.UpdateUser(c.Context(), id, &req)
+	// Get the validated DTO and profile photo
+	updateReq := formResult.Data.(*dto.UpdateUserRequest)
+	profilePhoto := formResult.Files["profile_photo"]
+
+	// Update user with optional profile photo
+	user, err := h.userUseCase.UpdateUser(c.Context(), id, updateReq, profilePhoto)
 	if err != nil {
 		return helpers.HandleError(c, err, "User update failed")
 	}
@@ -179,13 +203,13 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return helpers.BadRequestResponse(c, "User ID is required", "ID parameter is missing")
+		return helpers.HandleError(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
 	}
 
 	// Validate ID format
 	idParam := dto.IDParam{ID: id}
 	if err := h.validator.Validate(&idParam); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid user ID format", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid user ID format", err.Error()), "Invalid user ID format")
 	}
 
 	err := h.userUseCase.DeleteUser(c.Context(), id)
@@ -211,13 +235,13 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 func (h *UserHandler) RestoreUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return helpers.BadRequestResponse(c, "User ID is required", "ID parameter is missing")
+		return helpers.HandleError(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
 	}
 
 	// Validate ID format
 	idParam := dto.IDParam{ID: id}
 	if err := h.validator.Validate(&idParam); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid user ID format", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid user ID format", err.Error()), "Invalid user ID format")
 	}
 
 	err := h.userUseCase.RestoreUser(c.Context(), id)
@@ -248,10 +272,10 @@ func (h *UserHandler) GetUsersWithDeleted(c *fiber.Ctx) error {
 
 	// Validate query parameters
 	if err := h.validator.Validate(queryParams.PaginationQuery); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid pagination parameters", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid pagination parameters", err.Error()), "Invalid pagination parameters")
 	}
 	if err := h.validator.Validate(queryParams.FilterQuery); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid filter parameters", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid filter parameters", err.Error()), "Invalid filter parameters")
 	}
 
 	users, err := h.userUseCase.GetUsersWithDeleted(c.Context(), queryParams)
@@ -282,10 +306,10 @@ func (h *UserHandler) GetOnlyDeletedUsers(c *fiber.Ctx) error {
 
 	// Validate query parameters
 	if err := h.validator.Validate(queryParams.PaginationQuery); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid pagination parameters", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid pagination parameters", err.Error()), "Invalid pagination parameters")
 	}
 	if err := h.validator.Validate(queryParams.FilterQuery); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid filter parameters", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid filter parameters", err.Error()), "Invalid filter parameters")
 	}
 
 	users, err := h.userUseCase.GetOnlyDeletedUsers(c.Context(), queryParams)
@@ -311,13 +335,13 @@ func (h *UserHandler) GetOnlyDeletedUsers(c *fiber.Ctx) error {
 func (h *UserHandler) HardDeleteUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return helpers.BadRequestResponse(c, "User ID is required", "ID parameter is missing")
+		return helpers.HandleError(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
 	}
 
 	// Validate ID format
 	idParam := dto.IDParam{ID: id}
 	if err := h.validator.Validate(&idParam); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid user ID format", err.Error())
+		return helpers.HandleError(c, helpers.NewValidationError("Invalid user ID format", err.Error()), "Invalid user ID format")
 	}
 
 	err := h.userUseCase.HardDeleteUser(c.Context(), id)
