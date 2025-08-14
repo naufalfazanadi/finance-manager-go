@@ -54,7 +54,7 @@ func (am *AuthMiddleware) JWTAuth() fiber.Handler {
 		// Get the Authorization header
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			return helpers.HandleError(c, helpers.NewUnauthorizedError("Unauthorized", "Authorization header is required"), "Authorization header is required")
+			return helpers.HandleErrorResponse(c, helpers.NewUnauthorizedError("Unauthorized", "Authorization header is required"), "Authorization header is required")
 		}
 
 		// Extract token from header with improved parsing
@@ -72,17 +72,17 @@ func (am *AuthMiddleware) JWTAuth() fiber.Handler {
 
 		// Validate that we have a token
 		if token == "" {
-			return helpers.HandleError(c, helpers.NewUnauthorizedError("Unauthorized", "Empty token provided"), "Empty token provided")
+			return helpers.HandleErrorResponse(c, helpers.NewUnauthorizedError("Unauthorized", "Empty token provided"), "Empty token provided")
 		}
 
 		// Validate token with database check
 		claims, err := auth.ValidateTokenWithDB(c.Context(), token, am.userRepo)
 		if err != nil {
-			return helpers.HandleError(c, helpers.NewUnauthorizedError("Unauthorized", "Invalid or expired token: "+err.Error()), "Invalid or expired token")
+			return helpers.HandleErrorResponse(c, helpers.NewUnauthorizedError("Unauthorized", "Invalid or expired token: "+err.Error()), "Invalid or expired token")
 		}
 
 		// Set user information in context
-		c.Locals("userID", claims.UserID.String())
+		c.Locals("userID", claims.UserID)
 		c.Locals("userEmail", claims.Email)
 		c.Locals("userName", claims.Name)
 		c.Locals("userRole", string(claims.Role))
@@ -96,7 +96,7 @@ func RequireRole(roles ...entities.UserRole) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userRole := c.Locals("userRole")
 		if userRole == nil {
-			return helpers.HandleError(c, helpers.NewForbiddenError("Forbidden", "User role not found"), "User role not found")
+			return helpers.HandleErrorResponse(c, helpers.NewForbiddenError("Forbidden", "User role not found"), "User role not found")
 		}
 
 		currentRole := entities.UserRole(userRole.(string))
@@ -108,7 +108,7 @@ func RequireRole(roles ...entities.UserRole) fiber.Handler {
 			}
 		}
 
-		return helpers.HandleError(c, helpers.NewForbiddenError("Forbidden", "Insufficient permissions"), "Insufficient permissions")
+		return helpers.HandleErrorResponse(c, helpers.NewForbiddenError("Forbidden", "Insufficient permissions"), "Insufficient permissions")
 	}
 }
 
@@ -156,7 +156,7 @@ func (am *AuthMiddleware) OptionalJWTAuth() fiber.Handler {
 		}
 
 		// Set user information in context
-		c.Locals("userID", claims.UserID.String())
+		c.Locals("userID", claims.UserID)
 		c.Locals("userEmail", claims.Email)
 		c.Locals("userName", claims.Name)
 		c.Locals("userRole", string(claims.Role))

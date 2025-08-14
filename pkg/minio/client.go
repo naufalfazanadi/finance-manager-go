@@ -28,7 +28,7 @@ type Client interface {
 	GetObject(ctx context.Context, object DownloadObject) (result *minio.Object, err error)
 	GetObjectPrivate(ctx context.Context, object DownloadObject) (result string, err error)
 	RemoveObject(ctx context.Context, object DownloadObject) (err error)
-	RemoveObjectByPath(ctx context.Context, objectPath string) (err error)
+	RemoveObjectByPath(ctx context.Context, bucket string, objectPath string) (err error)
 	Upload(ctx context.Context, object UploadObject) (result string, err error)
 	Uploads(ctx context.Context, objects []UploadObject) (result []string, err error)
 	// New Implementation

@@ -40,6 +40,7 @@ func Setup(dependencies *container.ServiceContainer) *fiber.App {
 	// Setup routes with centralized dependencies
 	AuthRoutes(api, dependencies)
 	UserRoutes(api, dependencies)
+	WalletRoutes(api, dependencies)
 
 	return app
 }

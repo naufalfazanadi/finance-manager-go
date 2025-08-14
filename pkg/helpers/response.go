@@ -58,8 +58,8 @@ func ErrorResponse(c *fiber.Ctx, statusCode int, message string, details interfa
 	})
 }
 
-// HandleError handles errors based on their type and sends appropriate response
-func HandleError(c *fiber.Ctx, err error, defaultMessage string) error {
+// HandleErrorResponse handles errors based on their type and sends appropriate response
+func HandleErrorResponse(c *fiber.Ctx, err error, defaultMessage string) error {
 	if IsAppError(err) {
 		appErr := err.(*AppError)
 

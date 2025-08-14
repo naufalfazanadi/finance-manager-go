@@ -1,52 +1,56 @@
 # Finance Manager Go
 
-A clean architecture REST API built with Go, Fiber, and PostgreSQL for managing personal finances. This project follows Domain-Driven Design (DDD) principles and clean architecture patterns for maintainable and scalable code.
+A comprehensive clean architecture REST API built with Go, Fiber, and PostgreSQL for managing personal finances. This project follows Domain-Driven Design (DDD) principles and clean architecture patterns for maintainable and scalable code.
 
 ## 🚀 Features
 
-- **Clean Architecture**: Domain-driven design with clear sepa   └─   └─   └──            │   ├── auth_manager.go         # Central auth service manager
-       │   ├── jwt_service.go          # JWT token service
-       │   └── password_service.go     # Password hashing service── auth/                       # Authentication infrastructure
-       │   ├── auth_manager.go         # Central auth service manager
-       │   ├── jwt_service.go          # JWT token service
-       │   └── password_service.go     # Password hashing servicestructure/                 # Infrastructure Layer
-       ├── auth/                       # Authentication infrastructure
-       │   ├── auth_manager.go         # Central auth service manager
-       │   ├── jwt_service.go          # JWT token service
-       │   └── password_service.go     # Password hashing service
-       └── database/                   # Database infrastructure
-           └── postgres.go             # PostgreSQL connectiontructure/                 # Infrastructure Layer
-       ├── auth/                       # Authentication infrastructure
-       │   ├── auth_manager.go         # Central auth service manager
-       │   ├── jwt_service.go          # JWT token service
-       │   └── password_service.go     # Password hashing service
-       └── database/                   # Database infrastructurestructure/                 # Infrastructure Layer
-       ├── auth/                       # Authentication infrastructure
-       │   ├── auth_manager.go         # Central auth service manager
-       │   ├── jwt_service.go          # JWT token service
-       │   └── password_service.go     # Password hashing service
-       └── database/                   # Database infrastructureof concerns
+### 💰 Finance Management
+- **Wallet Management**: Complete CRUD operations for personal wallets with different types and categories
+- **Multi-Currency Support**: Handle different currencies (IDR, USD, EUR, etc.)
+- **Balance Tracking**: Track wallet balances with decimal precision
+- **Soft Delete**: Recoverable wallet deletion with restore functionality
+
+### 🔐 Authentication & Security
 - **JWT Authentication**: Secure token-based authentication with role-based access control
+- **Strong Password Validation**: Password strength requirements (uppercase, number, special character)
 - **Password Security**: Bcrypt password hashing with secure storage
+- **Role-Based Access**: Admin and user roles with protected endpoints
+- **Email Encryption**: PII data encryption for user emails and sensitive information
+
+### 👥 User Management
+- **Complete User CRUD**: Create, read, update, delete operations with validation
+- **Profile Photos**: Upload and manage user profile photos with Minio integration
+- **User Filtering**: Advanced search, sorting, and pagination capabilities
+- **Soft Delete Support**: Recoverable user deletion with restore functionality
+- **Birth Date Management**: Encrypted birth date storage with age calculation
+
+### 📁 File Management
+- **Minio Integration**: Secure file storage with public/private bucket support
+- **Profile Photo Upload**: Support for JPEG, PNG formats with size validation
+- **File Validation**: Comprehensive file type and size validation
+- **Automatic Cleanup**: Failed upload rollback and old file cleanup
+
+### 🏗️ Technical Features
+- **Clean Architecture**: Domain-driven design with clear separation of concerns
 - **RESTful API**: Built with Fiber web framework v2.52.9
 - **Database**: PostgreSQL with GORM ORM v1.30.1
-- **User Management**: Complete CRUD operations with filtering and pagination
 - **Middleware**: JWT authentication, CORS, error handling, and logging middleware
 - **Dependency Injection**: Centralized container for managing dependencies
 - **Structured Logging**: Comprehensive logging with Logrus and contextual information
-- **Validation**: Request validation with go-playground/validator v10.27.0
+- **Advanced Validation**: Request validation with custom rules and file validation
 - **Live Reload**: Development with Air (like nodemon for Go)
-- **UUID Support**: Google UUID for unique identifiers
+- **UUID Support**: Google UUID for unique identifiers throughout the system
 - **Environment Management**: dotenv for configuration
 - **Error Handling**: Comprehensive error responses with custom AppError types
 - **API Documentation**: Interactive Swagger/OpenAPI documentation with examples
-- **Role-Based Access**: Admin and user roles with protected endpoints
+- **Generic Pagination**: Type-safe pagination system with PaginationData[T]
 - **Swagger UI**: Interactive API documentation accessible at `/swagger/index.html`
 
 ## 📋 Prerequisites
 
 - Go 1.24.4 or higher
 - PostgreSQL 12 or higher
+- MinIO (for file storage)
 - Air (for live reload development)
 
 ## 🛠️ Installation
@@ -92,6 +96,20 @@ A clean architecture REST API built with Go, Fiber, and PostgreSQL for managing 
    # JWT Configuration
    JWT_SECRET=your-secret-key-change-in-production
    JWT_EXPIRES_IN=24h
+
+   # CORS Configuration
+   CORS_ALLOW_ORIGINS=*
+   CORS_ALLOW_METHODS=GET,POST,PUT,DELETE,OPTIONS
+   CORS_ALLOW_HEADERS=Origin,Content-Type,Accept,Authorization
+
+   # MinIO Configuration
+   MINIO_ENDPOINT=localhost:9000
+   MINIO_ACCESS_KEY=minioadmin
+   MINIO_SECRET_KEY=minioadmin
+   MINIO_USE_SSL=false
+   MINIO_PRIVATE_BUCKET=private
+   MINIO_PUBLIC_BUCKET=public
+   MINIO_DIRECTORY=finance-manager
    ```
 
 5. **Setup PostgreSQL database**
@@ -99,7 +117,17 @@ A clean architecture REST API built with Go, Fiber, and PostgreSQL for managing 
    CREATE DATABASE finance_manager_db;
    ```
 
-6. **Run database migrations**
+6. **Setup MinIO (for file storage)**
+   ```bash
+   # Using Docker
+   docker run -d -p 9000:9000 -p 9001:9001 \
+     --name minio \
+     -e "MINIO_ROOT_USER=minioadmin" \
+     -e "MINIO_ROOT_PASSWORD=minioadmin" \
+     minio/minio server /data --console-address ":9001"
+   ```
+
+7. **Run database migrations**
    ```bash
    # Migrations will run automatically on application start
    # Check /migrations folder for SQL files
@@ -184,8 +212,8 @@ Content-Type: application/json
 {
   "email": "user@example.com",
   "name": "John Doe",
-  "password": "password123",
-  "role": "user"
+  "password": "Password123!",
+  "birth_date": "1990-01-15"
 }
 
 # Login user
@@ -193,7 +221,7 @@ POST /api/v1/auth/login
 Content-Type: application/json
 {
   "email": "user@example.com",
-  "password": "password123"
+  "password": "Password123!"
 }
 
 # Get authenticated user profile (Protected - requires JWT token)
@@ -203,15 +231,17 @@ Authorization: Bearer <jwt_token>
 
 ### User Management Endpoints
 ```bash
-# Create user (Public - alternative to register)
+# Create user (Protected - admin only)
 POST /api/v1/users
-Content-Type: application/json
+Content-Type: multipart/form-data
+# OR Content-Type: application/json
 {
   "email": "user@example.com",
   "name": "John Doe",
-  "password": "password123",
-  "role": "user"
+  "password": "Password123!",
+  "birth_date": "1990-01-15"
 }
+# Optional: profile_photo_file (multipart file)
 
 # Get all users (Protected - requires JWT token)
 GET /api/v1/users?page=1&limit=10&search=john&sort_by=name&sort_type=asc
@@ -221,16 +251,72 @@ Authorization: Bearer <jwt_token>
 GET /api/v1/users/{id}
 Authorization: Bearer <jwt_token>
 
-# Update user (Protected - requires JWT token)
+# Update user (Protected - user can update own profile, admin can update any)
 PUT /api/v1/users/{id}
+Authorization: Bearer <jwt_token>
+Content-Type: multipart/form-data
+# OR Content-Type: application/json
+{
+  "name": "John Updated",
+  "birth_date": "1990-01-15"
+}
+# Optional: profile_photo_file (multipart file)
+
+# Delete user (Protected - soft delete)
+DELETE /api/v1/users/{id}
+Authorization: Bearer <jwt_token>
+
+# Restore user (Protected - admin only)
+PUT /api/v1/users/{id}/restore
+Authorization: Bearer <jwt_token>
+
+# Hard delete user (Protected - admin only)
+DELETE /api/v1/users/{id}/hard
+Authorization: Bearer <jwt_token>
+
+# Get users with deleted (Protected - admin only)
+GET /api/v1/users/with-deleted?page=1&limit=10
+Authorization: Bearer <jwt_token>
+
+# Get only deleted users (Protected - admin only)
+GET /api/v1/users/deleted?page=1&limit=10
+Authorization: Bearer <jwt_token>
+```
+
+### Wallet Management Endpoints
+```bash
+# Create wallet (Protected - user can create own wallet, admin can create for any user)
+POST /api/v1/wallets
 Authorization: Bearer <jwt_token>
 Content-Type: application/json
 {
-  "name": "John Updated"
+  "name": "My Savings",
+  "type": "savings",
+  "category": "personal",
+  "balance": 1000.50,
+  "currency": "IDR",
+  "user_id": "123e4567-e89b-12d3-a456-426614174000"
 }
 
-# Delete user (Protected - requires JWT token)
-DELETE /api/v1/users/{id}
+# Get all wallets (Protected - user sees own wallets, admin sees all)
+GET /api/v1/wallets?page=1&limit=10&search=savings&sort_by=created_at&sort_type=desc
+Authorization: Bearer <jwt_token>
+
+# Get wallet by ID (Protected - user can access own wallets, admin can access all)
+GET /api/v1/wallets/{id}
+Authorization: Bearer <jwt_token>
+
+# Update wallet (Protected - user can update own wallets, admin can update any)
+PUT /api/v1/wallets/{id}
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+{
+  "name": "Updated Savings",
+  "balance": 2000.75
+}
+
+# Delete wallet (Protected - soft delete)
+DELETE /api/v1/wallets/{id}
 Authorization: Bearer <jwt_token>
 ```
 
@@ -241,21 +327,30 @@ The API supports comprehensive filtering, sorting, and pagination:
 ```bash
 # Pagination
 GET /api/v1/users?page=2&limit=10
+GET /api/v1/wallets?page=1&limit=5
 
 # Search users by name or email
 GET /api/v1/users?search=john
 
-# Filter by role
-GET /api/v1/users?role=admin
+# Search wallets by name, type, or category
+GET /api/v1/wallets?search=savings
 
-# Sort users (available: name, email, role, created_at, updated_at)
+# Filter by specific fields
+GET /api/v1/users?role=admin
+GET /api/v1/wallets?category=personal&type=savings
+
+# Sort users (available: name, email, created_at, updated_at)
 GET /api/v1/users?sort_by=created_at&sort_type=desc
+
+# Sort wallets (available: name, type, category, created_at, updated_at)
+GET /api/v1/wallets?sort_by=balance&sort_type=asc
 
 # Date range filtering
 GET /api/v1/users?created_after=2024-01-01&created_before=2024-12-31
+GET /api/v1/wallets?created_after=2024-01-01&created_before=2024-12-31
 
 # Combined filtering example
-GET /api/v1/users?search=john&role=user&sort_by=name&sort_type=asc&page=1&limit=20
+GET /api/v1/wallets?search=savings&category=personal&sort_by=balance&sort_type=desc&page=1&limit=10
 ```
 
 ### Response Format
@@ -270,6 +365,33 @@ GET /api/v1/users?search=john&role=user&sort_by=name&sort_type=asc&page=1&limit=
     "email": "user@example.com",
     "name": "John Doe",
     "role": "user",
+    "birth_date": "1990-01-15T00:00:00Z",
+    "age": 34,
+    "profile_photo": "https://minio.example.com/public/profile-photo/2024/01/profile_photo_1641024000.jpg",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+#### Wallet Response
+```json
+{
+  "success": true,
+  "message": "Wallet retrieved successfully",
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "My Savings",
+    "type": "savings",
+    "category": "personal",
+    "balance": 1000.50,
+    "currency": "IDR",
+    "user_id": "123e4567-e89b-12d3-a456-426614174000",
+    "user": {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "name": "John Doe",
+      "email": "user@example.com"
+    },
     "created_at": "2024-01-01T00:00:00Z",
     "updated_at": "2024-01-01T00:00:00Z"
   }
@@ -297,12 +419,15 @@ GET /api/v1/users?search=john&role=user&sort_by=name&sort_type=asc&page=1&limit=
   "success": true,
   "message": "Login successful",
   "data": {
-    "user": {
-      "id": "123e4567-e89b-12d3-a456-426614174000",
-      "email": "user@example.com",
-      "name": "John Doe",
-      "role": "user"
-    },
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "role": "user",
+    "birth_date": "1990-01-15T00:00:00Z",
+    "age": 34,
+    "profile_photo": "https://minio.example.com/public/profile-photo/2024/01/profile_photo_1641024000.jpg",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z",
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   }
 }
@@ -321,8 +446,17 @@ GET /api/v1/users?search=john&role=user&sort_by=name&sort_type=asc&page=1&limit=
 ```json
 {
   "success": false,
-  "message": "Validation failed",
-  "error": "Key: 'CreateUserRequest.Email' Error:Field validation for 'Email' failed on the 'required' tag"
+  "message": "Form validation failed",
+  "error": "field 'password' must contain at least 1 uppercase letter, 1 number, and 1 special character"
+}
+```
+
+#### File Upload Error Example
+```json
+{
+  "success": false,
+  "message": "File validation failed",
+  "error": "File size must not exceed 2097152 bytes"
 }
 ```
 
@@ -336,34 +470,99 @@ finance-manager-go/
 ├── internal/
 │   ├── app/                            # Application Layer
 │   │   ├── container/                  # Dependency Injection Container
-│   │   │   └── container.go            # Centralized dependency management
+│   │   │   └── service_container.go    # Centralized dependency management
 │   │   ├── handlers/                   # HTTP handlers (controllers)
 │   │   │   ├── auth_handler.go         # Authentication HTTP handlers
-│   │   │   └── user_handler.go         # User HTTP handlers
+│   │   │   ├── health_handler.go       # Health check handlers
+│   │   │   ├── user_handler.go         # User HTTP handlers
+│   │   │   └── wallet_handler.go       # Wallet HTTP handlers
 │   │   ├── middleware/                 # HTTP middleware
 │   │   │   └── middleware.go           # JWT auth, CORS, error handling
 │   │   └── routes/                     # Route definitions
 │   │       ├── auth_route.go           # Authentication routes
 │   │       ├── routes.go               # Main router setup
-│   │       └── user_route.go           # User routes
+│   │       ├── user_route.go           # User routes
+│   │       └── wallet_route.go         # Wallet routes
 │   ├── domain/                         # Domain Layer (Business Logic)
 │   │   ├── entities/                   # Domain entities
-│   │   │   └── user.go                 # User entity with roles
+│   │   │   ├── user.go                 # User entity with roles and encryption
+│   │   │   └── wallet.go               # Wallet entity with soft delete
 │   │   ├── repositories/               # Repository interfaces
-│   │   │   └── user_repository.go      # User repository interface
+│   │   │   ├── user_repository.go      # User repository interface
+│   │   │   └── wallet_repository.go    # Wallet repository interface
 │   │   └── usecases/                   # Business use cases
 │   │       ├── auth_usecase.go         # Authentication business logic
-│   │       └── user_usecase.go         # User business logic
+│   │       ├── user_usecase.go         # User business logic
+│   │       └── wallet_usecase.go       # Wallet business logic
 │   ├── dto/                            # Data Transfer Objects
 │   │   ├── auth_dto.go                 # Authentication DTOs
 │   │   ├── common_dto.go               # Common DTOs (responses, pagination)
-│   │   └── user_dto.go                 # User-specific DTOs
+│   │   ├── user_dto.go                 # User-specific DTOs
+│   │   └── wallet_dto.go               # Wallet-specific DTOs
 │   └── infrastructure/                 # Infrastructure Layer
 │       ├── auth/                       # Authentication infrastructure
-│       │   ├── auth_manager.go         # Central auth service manager
-│       │   ├── jwt_service.go          # JWT token service
-│       │   └── password_service.go     # Password hashing service
+│       │   ├── jwt.go                  # JWT token service
+│       │   └── password.go             # Password hashing with validation
+│       ├── cache/                      # Cache infrastructure (future)
 │       └── database/                   # Database infrastructure
+│           └── postgres.go             # PostgreSQL connection
+├── pkg/                               # Shared Packages
+│   ├── config/                        # Configuration management
+│   │   └── config.go                  # App configuration with all settings
+│   ├── encryption/                    # PII encryption utilities
+│   │   └── pii_encryption.go         # Email and sensitive data encryption
+│   ├── helpers/                       # Helper utilities
+│   │   ├── errors.go                  # Custom error types and handling
+│   │   ├── query_parser.go            # Query parameter parsing utilities
+│   │   └── response.go                # HTTP response utilities
+│   ├── logger/                        # Logging utilities
+│   │   └── logger.go                  # Structured logger with context
+│   ├── minio/                         # MinIO file storage
+│   │   ├── client.go                  # MinIO client initialization
+│   │   ├── download.go                # File download operations
+│   │   ├── helper.go                  # Upload/delete helper functions
+│   │   └── upload.go                  # File upload operations
+│   ├── upload/                        # File validation
+│   │   └── validation_configs.go      # File validation configurations
+│   ├── utils/                         # Common utilities
+│   │   └── constant.go                # Application constants and messages
+│   └── validator/                     # Validation utilities
+│       └── validator.go               # Custom validators with file support
+├── migrations/                        # Database migrations
+│   ├── 003_add_password_to_users.sql  # Password field migration
+│   ├── 004_add_role_to_users.sql      # User roles migration
+│   ├── 005_add_soft_delete_to_users.sql # User soft delete migration
+│   ├── 006_add_encrypted_email_to_users.sql # Email encryption migration
+│   ├── 007_add_birth_date_encrypted_to_users.sql # Birth date encryption
+│   ├── 008_make_email_nullable.sql    # Email nullable migration
+│   ├── 009_add_profile_photo_to_users.sql # Profile photo migration
+│   ├── 010_rename_profile_photo_column.sql # Photo column rename
+│   ├── 011_add_profile_photo_to_users.sql # Profile photo fix
+│   └── 012_add_deleted_boolean_to_users_and_wallets.sql # Boolean soft delete
+├── docs/                             # Documentation
+│   ├── docs.go                       # Swagger docs generation
+│   ├── swagger.json                  # Generated Swagger JSON
+│   ├── swagger.yaml                  # Generated Swagger YAML
+│   └── sequence/                     # Sequence diagrams (future)
+├── examples/                         # API usage examples (future)
+├── scripts/                          # Build and deployment scripts
+├── storage/                          # Local file storage
+│   ├── private/                      # Private files
+│   └── public/                       # Public files
+├── tmp/                              # Temporary build files
+│   ├── build-errors.log              # Build error logs
+│   ├── finance-manager               # Linux binary
+│   └── finance-manager.exe           # Windows binary
+├── worker/                           # Background workers (future)
+├── .air.toml                         # Air configuration
+├── .env.example                      # Environment template
+├── Dockerfile                        # Docker configuration
+├── dev.bat                           # Windows development script
+├── Makefile                          # Build commands
+├── README.md                         # This file
+├── go.mod                            # Go modules
+└── go.sum                            # Go dependencies checksum
+```
 │           └── postgres.go             # PostgreSQL connection
 ├── pkg/                               # Shared Packages
 │   ├── config/                        # Configuration management

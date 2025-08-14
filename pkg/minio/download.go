@@ -40,10 +40,10 @@ func (c *client) RemoveObject(ctx context.Context, object DownloadObject) (err e
 	return c.minioClient.RemoveObject(ctx, object.BucketName, object.ObjectName, minio.RemoveObjectOptions{})
 }
 
-func (c *client) RemoveObjectByPath(ctx context.Context, objectPath string) (err error) {
+func (c *client) RemoveObjectByPath(ctx context.Context, bucket string, objectPath string) (err error) {
 	// For profile photos, we use the public bucket by default
 	// The objectPath contains the relative path within the bucket
-	return c.minioClient.RemoveObject(ctx, publicBucket, objectPath, minio.RemoveObjectOptions{})
+	return c.minioClient.RemoveObject(ctx, bucket, objectPath, minio.RemoveObjectOptions{})
 }
 
 func (c *client) GetObjectPrivate(ctx context.Context, object DownloadObject) (url string, err error) {
@@ -79,4 +79,25 @@ func (c *client) GetPrivate(ctx context.Context, object GetPrivateDto) (result R
 	}
 
 	return res, nil
+}
+
+func (c *client) GetFullUrl(ctx context.Context, params GetFullUrlDto) (fullUrl string) {
+	// Check if this is a private bucket
+	if params.BucketName == privateBucket {
+		// For private bucket, generate signed URL
+		expiry := time.Minute * time.Duration(5) // default 5 min
+		if params.ExpiredInMinute > 0 {
+			expiry = time.Minute * time.Duration(params.ExpiredInMinute)
+		}
+
+		presignedURL, err := c.minioClient.PresignedGetObject(ctx, params.BucketName, params.Path, expiry, nil)
+		if err != nil {
+			// Fallback to direct URL if signing fails
+			return GetFullUrl(params.BucketName, params.Path)
+		}
+		return presignedURL.String()
+	}
+
+	// For public bucket or any other bucket, use direct URL concatenation
+	return GetFullUrl(params.BucketName, params.Path)
 }

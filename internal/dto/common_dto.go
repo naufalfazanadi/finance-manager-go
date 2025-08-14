@@ -1,10 +1,7 @@
 package dto
 
 import (
-	"strconv"
-	"strings"
-
-	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 // Pagination DTOs
@@ -23,7 +20,7 @@ type PaginationMeta struct {
 // Filter DTOs
 type FilterQuery struct {
 	Search   string            `json:"search" query:"search" validate:"omitempty,max=255"`
-	SortBy   string            `json:"sort_by" query:"sort_by" validate:"omitempty,oneof=name email created_at updated_at"`
+	SortBy   string            `json:"sort_by" query:"sort_by" validate:"omitempty"`
 	SortType string            `json:"sort_type" query:"sort_type" validate:"omitempty,oneof=asc desc"`
 	Filters  map[string]string `json:"filters" query:"filters"`
 }
@@ -32,98 +29,29 @@ type FilterQuery struct {
 type QueryParams struct {
 	*PaginationQuery
 	*FilterQuery
+	LoggedUserID uuid.UUID `json:"logged_user_id" param:"logged_user_id" validate:"uuid" example:"123e4567-e89b-12d3-a456-426614174000"`
 }
 
 // ID Parameter validation
 type IDParam struct {
-	ID string `param:"id" validate:"required,uuid" example:"123e4567-e89b-12d3-a456-426614174000"`
+	ID uuid.UUID `json:"id" param:"id" validate:"required,uuid" example:"123e4567-e89b-12d3-a456-426614174000"`
 }
 
-// ParsePaginationQuery parses pagination parameters from Fiber context
-func ParsePaginationQuery(c *fiber.Ctx) *PaginationQuery {
-	page := 1
-	limit := 10
-
-	if p := c.Query("page"); p != "" {
-		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
-
-	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
-			limit = parsed
-		}
-	}
-
-	return &PaginationQuery{
-		Page:  page,
-		Limit: limit,
-	}
+// Error Response
+type ErrorResponse struct {
+	Error   string                 `json:"error" example:"Bad Request"`
+	Message string                 `json:"message" example:"Invalid input data"`
+	Details map[string]interface{} `json:"details,omitempty"`
 }
 
-// ParseFilterQuery parses filter parameters from Fiber context
-func ParseFilterQuery(c *fiber.Ctx) *FilterQuery {
-	search := c.Query("search")
-	sortBy := c.Query("sort_by")
-	sortType := strings.ToLower(c.Query("sort_type"))
-
-	// Validate sort direction
-	if sortType != "asc" && sortType != "desc" {
-		sortType = "asc"
-	}
-
-	// Parse custom filters (e.g., ?name=john&role=user)
-	filters := make(map[string]string)
-	queryMap := c.Queries()
-	excludedParams := map[string]bool{
-		"page":      true,
-		"limit":     true,
-		"search":    true,
-		"sort_by":   true,
-		"sort_type": true,
-	}
-
-	for key, value := range queryMap {
-		if !excludedParams[key] && value != "" {
-			filters[key] = value
-		}
-	}
-
-	return &FilterQuery{
-		Search:   search,
-		SortBy:   sortBy,
-		SortType: sortType,
-		Filters:  filters,
-	}
-}
-
-// ParseQueryParams parses both pagination and filter parameters
-func ParseQueryParams(c *fiber.Ctx) *QueryParams {
-	return &QueryParams{
-		PaginationQuery: ParsePaginationQuery(c),
-		FilterQuery:     ParseFilterQuery(c),
-	}
+type PaginationData[T any] struct {
+	Data []T             `json:"data"`
+	Meta *PaginationMeta `json:"meta"`
 }
 
 // GetOffset calculates the offset for database queries
 func (p *PaginationQuery) GetOffset() int {
 	return (p.Page - 1) * p.Limit
-}
-
-// NewPaginationMeta creates pagination metadata
-func NewPaginationMeta(page, limit int, total int64) *PaginationMeta {
-	totalPages := int((total + int64(limit) - 1) / int64(limit))
-	if totalPages < 1 {
-		totalPages = 1
-	}
-
-	return &PaginationMeta{
-		Page:       page,
-		Limit:      limit,
-		Total:      total,
-		TotalPages: totalPages,
-	}
 }
 
 // HasSearch checks if search query is provided

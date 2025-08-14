@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,7 +19,7 @@ import (
 type AuthUseCaseInterface interface {
 	Register(ctx context.Context, req *dto.RegisterRequest) (*dto.AuthResponse, error)
 	Login(ctx context.Context, req *dto.LoginRequest) (*dto.LoginResponse, error)
-	GetProfile(ctx context.Context, userID string) (*dto.UserResponse, error)
+	GetProfile(ctx context.Context, userID uuid.UUID) (*dto.UserResponse, error)
 }
 
 type AuthUseCase struct {
@@ -34,6 +35,12 @@ func NewAuthUseCase(userRepo repositories.UserRepository) AuthUseCaseInterface {
 func (uc *AuthUseCase) Register(ctx context.Context, req *dto.RegisterRequest) (*dto.AuthResponse, error) {
 	funcCtx := "Register"
 
+	// Validate password strength
+	if err := auth.ValidatePasswordStrength(req.Password); err != nil {
+		logger.LogError(funcCtx, "password validation failed", err, logrus.Fields{"email": req.Email})
+		return nil, helpers.NewBadRequestError("password validation failed", err.Error())
+	}
+
 	// Hash the email to check for existing user
 	hashResult := encryption.HashSHA256(req.Email)
 	if hashResult.Error != nil {
@@ -44,13 +51,14 @@ func (uc *AuthUseCase) Register(ctx context.Context, req *dto.RegisterRequest) (
 	emailHash := hashResult.Data.(string)
 
 	// Check if user already exists using email hash
-	existingUser, _ := uc.userRepo.GetByEmailHash(ctx, emailHash)
+	existingUser, errUser := uc.userRepo.GetByEmailHash(ctx, emailHash)
 	if existingUser != nil {
 		logger.LogError(funcCtx, "user already exists during registration", nil, logrus.Fields{
 			"email_hash": emailHash,
 		})
 		return nil, helpers.NewConflictError("user with this email already exists", "")
 	}
+	fmt.Println(errUser)
 
 	// Hash password
 	hashedPassword, err := auth.HashPassword(req.Password)
@@ -100,7 +108,7 @@ func (uc *AuthUseCase) Register(ctx context.Context, req *dto.RegisterRequest) (
 	}
 
 	return &dto.AuthResponse{
-		UserResponse: *uc.mapToUserResponse(user),
+		UserResponse: *dto.MapToUserResponse(user),
 		Token:        token,
 	}, nil
 }
@@ -144,42 +152,21 @@ func (uc *AuthUseCase) Login(ctx context.Context, req *dto.LoginRequest) (*dto.L
 	}
 
 	return &dto.LoginResponse{
-		UserResponse: *uc.mapToUserResponse(user),
+		UserResponse: *dto.MapToUserResponse(user),
 		Token:        token,
 	}, nil
 }
 
-func (uc *AuthUseCase) GetProfile(ctx context.Context, userID string) (*dto.UserResponse, error) {
+func (uc *AuthUseCase) GetProfile(ctx context.Context, userID uuid.UUID) (*dto.UserResponse, error) {
 	funcCtx := "GetProfile"
 
-	userUUID, err := uuid.Parse(userID)
-	if err != nil {
-		logger.LogError(funcCtx, "invalid user ID format", err, logrus.Fields{
-			"user_id": userID,
-		})
-		return nil, helpers.NewBadRequestError("invalid user ID format", "")
-	}
-
-	user, err := uc.userRepo.GetByID(ctx, userUUID)
+	user, err := uc.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		logger.LogError(funcCtx, "failed to get user", err, logrus.Fields{
-			"user_id": userID,
+			"user_id": userID.String(),
 		})
 		return nil, helpers.NewNotFoundError("user not found", "")
 	}
 
-	return uc.mapToUserResponse(user), nil
-}
-
-func (uc *AuthUseCase) mapToUserResponse(user *entities.User) *dto.UserResponse {
-	return &dto.UserResponse{
-		ID:        user.ID,
-		Email:     user.Email,
-		Name:      user.Name,
-		Role:      string(user.Role),
-		BirthDate: user.BirthDate,
-		Age:       user.GetAge(),
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-	}
+	return dto.MapToUserResponse(user), nil
 }

@@ -16,51 +16,55 @@ type ServiceContainer struct {
 	Validator *validator.Validator
 
 	// Repositories
-	UserRepo repositories.UserRepository
+	UserRepo   repositories.UserRepository
+	WalletRepo repositories.WalletRepository
 
 	// Middleware
 	AuthMiddleware *middleware.AuthMiddleware
 
 	// Use cases
-	UserUseCase usecases.UserUseCaseInterface
-	AuthUseCase usecases.AuthUseCaseInterface
+	AuthUseCase   usecases.AuthUseCaseInterface
+	UserUseCase   usecases.UserUseCaseInterface
+	WalletUseCase usecases.WalletUseCaseInterface
 
 	// Handlers
-	UserHandler *handlers.UserHandler
-	AuthHandler *handlers.AuthHandler
+	AuthHandler   *handlers.AuthHandler
+	UserHandler   *handlers.UserHandler
+	WalletHandler *handlers.WalletHandler
 }
 
 // NewServiceContainer creates and initializes all application dependencies
 func NewServiceContainer(db *gorm.DB, validator *validator.Validator) *ServiceContainer {
 	// Initialize repositories
 	userRepo := repositories.NewUserRepository(db)
+	walletRepo := repositories.NewWalletRepository(db)
 
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(userRepo)
 
 	// Initialize use cases
-	userUseCase := usecases.NewUserUseCase(userRepo)
 	authUseCase := usecases.NewAuthUseCase(userRepo)
+	userUseCase := usecases.NewUserUseCase(userRepo)
+	walletUseCase := usecases.NewWalletUseCase(walletRepo, userRepo)
 
 	// Initialize handlers
-	userHandler := handlers.NewUserHandler(userUseCase, validator)
 	authHandler := handlers.NewAuthHandler(authUseCase, validator)
+	userHandler := handlers.NewUserHandler(userUseCase, validator)
+	walletHandler := handlers.NewWalletHandler(walletUseCase, validator)
 
 	return &ServiceContainer{
 		DB:             db,
 		Validator:      validator,
 		UserRepo:       userRepo,
+		WalletRepo:     walletRepo,
 		AuthMiddleware: authMiddleware,
-		UserUseCase:    userUseCase,
 		AuthUseCase:    authUseCase,
-		UserHandler:    userHandler,
+		UserUseCase:    userUseCase,
+		WalletUseCase:  walletUseCase,
 		AuthHandler:    authHandler,
+		UserHandler:    userHandler,
+		WalletHandler:  walletHandler,
 	}
-}
-
-// GetUserHandler returns the user handler
-func (sc *ServiceContainer) GetUserHandler() *handlers.UserHandler {
-	return sc.UserHandler
 }
 
 // GetAuthHandler returns the auth handler
@@ -68,9 +72,24 @@ func (sc *ServiceContainer) GetAuthHandler() *handlers.AuthHandler {
 	return sc.AuthHandler
 }
 
+// GetUserHandler returns the user handler
+func (sc *ServiceContainer) GetUserHandler() *handlers.UserHandler {
+	return sc.UserHandler
+}
+
+// GetWalletHandler returns the wallet handler
+func (sc *ServiceContainer) GetWalletHandler() *handlers.WalletHandler {
+	return sc.WalletHandler
+}
+
 // GetAuthMiddleware returns the auth middleware
 func (sc *ServiceContainer) GetAuthMiddleware() *middleware.AuthMiddleware {
 	return sc.AuthMiddleware
+}
+
+// GetAuthUseCase returns the auth use case
+func (sc *ServiceContainer) GetAuthUseCase() usecases.AuthUseCaseInterface {
+	return sc.AuthUseCase
 }
 
 // GetUserUseCase returns the user use case
@@ -78,9 +97,9 @@ func (sc *ServiceContainer) GetUserUseCase() usecases.UserUseCaseInterface {
 	return sc.UserUseCase
 }
 
-// GetAuthUseCase returns the auth use case
-func (sc *ServiceContainer) GetAuthUseCase() usecases.AuthUseCaseInterface {
-	return sc.AuthUseCase
+// GetWalletUseCase returns the wallet use case
+func (sc *ServiceContainer) GetWalletUseCase() usecases.WalletUseCaseInterface {
+	return sc.WalletUseCase
 }
 
 // GetDB returns the database instance

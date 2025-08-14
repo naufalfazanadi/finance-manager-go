@@ -1,24 +1,28 @@
 package dto
 
 import (
+	"mime/multipart"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/naufalfazanadi/finance-manager-go/internal/domain/entities"
 )
 
 // Request DTOs
 type CreateUserRequest struct {
-	Email     string     `json:"email" validate:"required,email" example:"user@example.com"`
-	Name      string     `json:"name" validate:"required,min=2,max=100" example:"John Doe"`
-	Password  string     `json:"password" validate:"required,min=8,max=100" example:"password123"`
-	BirthDate *time.Time `json:"birth_date,omitempty" example:"1990-01-15T00:00:00Z"`
-	// Note: ProfilePhoto is handled separately in multipart form
+	Email            string                `json:"email" form:"email" validate:"required,email" example:"user@example.com"`
+	Name             string                `json:"name" form:"name" validate:"required,min=2,max=100" example:"John Doe"`
+	Password         string                `json:"password" form:"password" validate:"required,min=8,max=100" example:"password123"`
+	BirthDate        string                `json:"birth_date,omitempty" form:"birth_date" validate:"omitempty,datetime=2006-01-02" example:"1990-01-15"`
+	ProfilePhoto     string                `json:"profile_photo,omitempty" form:"profile_photo" validate:"omitempty" example:"profile photo URL or path"`
+	ProfilePhotoFile *multipart.FileHeader `json:"-" form:"profile_photo_file" validate:"omitempty" swaggerignore:"true"`
 }
 
 type UpdateUserRequest struct {
-	Name      string     `json:"name" validate:"omitempty,min=2,max=100" example:"John Doe Updated"`
-	BirthDate *time.Time `json:"birth_date,omitempty" example:"1990-01-15T00:00:00Z"`
-	// Note: ProfilePhoto is handled separately in multipart form
+	Name             string                `json:"name" form:"name" validate:"omitempty,min=2,max=100" example:"John Doe Updated"`
+	BirthDate        string                `json:"birth_date,omitempty" form:"birth_date" validate:"omitempty,datetime=2006-01-02" example:"1990-01-15"`
+	ProfilePhoto     string                `json:"profile_photo,omitempty" form:"profile_photo" validate:"omitempty" example:"profile photo URL or path"`
+	ProfilePhotoFile *multipart.FileHeader `json:"-" form:"profile_photo_file" validate:"omitempty" swaggerignore:"true"`
 }
 
 // Response DTOs
@@ -27,31 +31,24 @@ type UserResponse struct {
 	Email        string     `json:"email" example:"user@example.com"`
 	Name         string     `json:"name" example:"John Doe"`
 	Role         string     `json:"role" example:"user"`
-	BirthDate    *time.Time `json:"birth_date,omitempty" example:"1990-01-15T00:00:00Z"`
-	Age          *int       `json:"age,omitempty" example:"33"`
-	ProfilePhoto string     `json:"profile_photo,omitempty" example:"https://minio.example.com/public/profile-photo/2023/01/profile_photo_1641024000.jpg"`
-	CreatedAt    time.Time  `json:"created_at" example:"2023-01-01T00:00:00Z"`
-	UpdatedAt    time.Time  `json:"updated_at" example:"2023-01-01T00:00:00Z"`
+	BirthDate    *time.Time `json:"birth_date" example:"1990-01-15"`
+	Age          *int       `json:"age" example:"33"`
+	ProfilePhoto string     `json:"profile_photo" example:"https://minio.example.com/public/profile-photo/2023/01/profile_photo_1641024000.jpg"`
+	CreatedAt    time.Time  `json:"created_at" example:"2023-01-01"`
+	UpdatedAt    time.Time  `json:"updated_at" example:"2023-01-01"`
 }
 
-type UsersResponse struct {
-	Users      []UserResponse  `json:"users"`
-	Pagination *PaginationMeta `json:"pagination"`
-}
-
-// GetUsersData returns just the users array for the response
-func (ur *UsersResponse) GetUsersData() []UserResponse {
-	return ur.Users
-}
-
-// GetPaginationMeta returns just the pagination metadata
-func (ur *UsersResponse) GetPaginationMeta() *PaginationMeta {
-	return ur.Pagination
-}
-
-// Error Response
-type ErrorResponse struct {
-	Error   string                 `json:"error" example:"Bad Request"`
-	Message string                 `json:"message" example:"Invalid input data"`
-	Details map[string]interface{} `json:"details,omitempty"`
+// MapToUserResponse converts a User entity to UserResponse DTO
+func MapToUserResponse(user *entities.User) *UserResponse {
+	return &UserResponse{
+		ID:           user.ID,
+		Email:        user.Email,
+		Name:         user.Name,
+		Role:         string(user.Role),
+		BirthDate:    user.BirthDate,
+		Age:          user.GetAge(),
+		ProfilePhoto: user.GetProfilePhotoURL(),
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+	}
 }

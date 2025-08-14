@@ -120,7 +120,7 @@ func LoadConfig() *Config {
 			UseSSL:        getEnvAsBool("MINIO_USE_SSL", false),
 			PrivateBucket: getEnv("MINIO_PRIVATE_BUCKET", "private"),
 			PublicBucket:  getEnv("MINIO_PUBLIC_BUCKET", "public"),
-			Directory:     getEnv("MINIO_DIRECTORY", "finance-manager"),
+			Directory:     getEnv("MINIO_DIRECTORY", ""),
 		},
 	}
 

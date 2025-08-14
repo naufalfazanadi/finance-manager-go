@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/usecases"
 	"github.com/naufalfazanadi/finance-manager-go/internal/dto"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/helpers"
@@ -34,19 +35,14 @@ func NewAuthHandler(authUseCase usecases.AuthUseCaseInterface, validator *valida
 func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	var req dto.RegisterRequest
 
-	// Use strict JSON parsing that rejects unknown fields
-	if err := h.validator.ParseJSONStrict(c, &req); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid request body", err.Error()), "Invalid request body")
-	}
-
-	// Validate request
-	if err := h.validator.Validate(&req); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Validation failed", err.Error()), "Validation failed")
+	// Parse and validate request
+	if err := h.validator.ParseAndValidate(c, &req); err != nil {
+		return helpers.HandleErrorResponse(c, helpers.NewValidationError("Validation failed", err.Error()), "Invalid request body")
 	}
 
 	result, err := h.authUseCase.Register(c.Context(), &req)
 	if err != nil {
-		return helpers.HandleError(c, err, "Registration failed")
+		return helpers.HandleErrorResponse(c, err, "Registration failed")
 	}
 
 	return helpers.CreatedResponse(c, "User registered successfully", result)
@@ -65,18 +61,15 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 // @Router /v1/auth/login [post]
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req dto.LoginRequest
-	if err := h.validator.ParseJSONStrict(c, &req); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid request body", err.Error()), "Invalid request body")
-	}
 
-	// Validate request
-	if err := h.validator.Validate(&req); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Validation failed", err.Error()), "Validation failed")
+	// Parse and validate request
+	if err := h.validator.ParseAndValidate(c, &req); err != nil {
+		return helpers.HandleErrorResponse(c, helpers.NewValidationError("Validation failed", err.Error()), "Invalid request body")
 	}
 
 	result, err := h.authUseCase.Login(c.Context(), &req)
 	if err != nil {
-		return helpers.HandleError(c, err, "Login failed")
+		return helpers.HandleErrorResponse(c, err, "Login failed")
 	}
 
 	return helpers.SuccessResponse(c, "Login successful", result)
@@ -94,25 +87,14 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /v1/auth/profile [get]
 func (h *AuthHandler) GetProfile(c *fiber.Ctx) error {
-	userID := c.Locals("userID")
-	if userID == nil {
-		return helpers.HandleError(c, helpers.NewUnauthorizedError("Unauthorized", "User ID not found in token"), "Unauthorized")
+	userID := c.Locals("userID").(uuid.UUID)
+	if userID == uuid.Nil {
+		return helpers.HandleErrorResponse(c, helpers.NewUnauthorizedError("Unauthorized", "User ID not found in token"), "Unauthorized")
 	}
 
-	userIDStr, ok := userID.(string)
-	if !ok {
-		return helpers.HandleError(c, helpers.NewUnauthorizedError("Unauthorized", "Invalid user ID format in token"), "Unauthorized")
-	}
-
-	// Validate user ID format
-	idParam := dto.IDParam{ID: userIDStr}
-	if err := h.validator.Validate(&idParam); err != nil {
-		return helpers.HandleError(c, helpers.NewUnauthorizedError("Unauthorized", "Invalid user ID format in token"), "Unauthorized")
-	}
-
-	result, err := h.authUseCase.GetProfile(c.Context(), userIDStr)
+	result, err := h.authUseCase.GetProfile(c.Context(), userID)
 	if err != nil {
-		return helpers.HandleError(c, err, "Failed to retrieve profile")
+		return helpers.HandleErrorResponse(c, err, "Failed to retrieve profile")
 	}
 
 	return helpers.SuccessResponse(c, "Profile retrieved successfully", result)

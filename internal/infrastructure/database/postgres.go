@@ -139,6 +139,7 @@ func migrateWithTimeout(db *gorm.DB, timeout time.Duration) error {
 	go func() {
 		err := db.AutoMigrate(
 			&entities.User{},
+			&entities.Wallet{},
 			// Add other entities here as your project grows
 		)
 		migrationChan <- err

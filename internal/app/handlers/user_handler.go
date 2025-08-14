@@ -4,9 +4,12 @@ import (
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/usecases"
 	"github.com/naufalfazanadi/finance-manager-go/internal/dto"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/helpers"
+	"github.com/naufalfazanadi/finance-manager-go/pkg/upload"
+	ut "github.com/naufalfazanadi/finance-manager-go/pkg/utils"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type UserHandler struct {
@@ -31,37 +34,35 @@ func NewUserHandler(userUseCase usecases.UserUseCaseInterface, validator *valida
 // @Param name formData string true "Name"
 // @Param password formData string true "Password"
 // @Param birth_date formData string false "Birth Date (RFC3339 format)"
-// @Param profile_photo formData file false "Profile Photo (JPG/PNG, max 2MB)"
+// @Param profile_photo_file formData file false "Profile Photo File (JPG/PNG, max 2MB)"
 // @Success 201 {object} dto.UserResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 409 {object} dto.ErrorResponse
 // @Router /v1/users [post]
 func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
-	// Handle form data with optional photo
-	req := &dto.CreateUserRequest{}
-	config := validator.FormValidationConfig{
-		RequiredFields: []string{"email", "name", "password"},
-		OptionalFields: []string{"birth_date"},
-		FileFields:     []string{"profile_photo"},
-		ValidateFiles:  true,
+	var req dto.CreateUserRequest
+
+	// Parse and validate form data with strict field validation
+	if err := h.validator.ParseFormAndValidate(c, &req); err != nil {
+		if fiberErr, ok := err.(*fiber.Error); ok {
+			return helpers.HandleErrorResponse(c, helpers.NewBadRequestError(fiberErr.Message, fiberErr.Error()), fiberErr.Message)
+		}
+		return helpers.HandleErrorResponse(c, helpers.NewValidationError("Validation failed", err.Error()), "Validation failed")
 	}
 
-	formResult, err := h.validator.ValidateForm(c, req, config)
+	// Validate profile photo file if uploaded
+	profilePhotoResult := h.validator.ValidateFile(req.ProfilePhotoFile, upload.ProfilePhotoValidation)
+	if !profilePhotoResult.Valid {
+		return helpers.HandleErrorResponse(c, helpers.NewBadRequestError("Profile photo validation failed", profilePhotoResult.Error), "Profile photo validation failed")
+	}
+
+	// Create user
+	user, err := h.userUseCase.CreateUser(c.Context(), &req)
 	if err != nil {
-		return helpers.HandleError(c, err, "Form validation failed")
+		return helpers.HandleErrorResponse(c, err, ut.FailedCreateMsg("User"))
 	}
 
-	// Get the validated DTO and profile photo
-	createReq := formResult.Data.(*dto.CreateUserRequest)
-	profilePhoto := formResult.Files["profile_photo"]
-
-	// Create user with optional profile photo
-	user, err := h.userUseCase.CreateUser(c.Context(), createReq, profilePhoto)
-	if err != nil {
-		return helpers.HandleError(c, err, "User creation failed")
-	}
-
-	return helpers.CreatedResponse(c, "User created successfully", user)
+	return helpers.CreatedResponse(c, ut.SuccessCreateMsg("User"), user)
 }
 
 // GetUser godoc
@@ -80,21 +81,25 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return helpers.HandleError(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
+		return helpers.HandleErrorResponse(c, helpers.NewBadRequestError(ut.MsgErrIDRequired, ut.ErrIDRequired), ut.MsgErrIDRequired)
 	}
 
-	// Validate ID format
-	idParam := dto.IDParam{ID: id}
-	if err := h.validator.Validate(&idParam); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid user ID format", err.Error()), "Invalid user ID format")
-	}
-
-	user, err := h.userUseCase.GetUser(c.Context(), id)
+	// Parse and validate UUID format
+	userID, err := uuid.Parse(id)
 	if err != nil {
-		return helpers.HandleError(c, err, "Failed to get user")
+		return helpers.HandleErrorResponse(c, helpers.NewBadRequestError(ut.MsgErrInvalidID, ut.ErrInvalidIDFormat), ut.MsgErrInvalidID)
 	}
 
-	return helpers.SuccessResponse(c, "User retrieved successfully", user)
+	if userID != c.Locals("userID").(uuid.UUID) && c.Locals("userRole") != "admin" {
+		return helpers.HandleErrorResponse(c, helpers.NewForbiddenError("You do not have permission", "Permission denied"), "Permission denied")
+	}
+
+	user, err := h.userUseCase.GetUser(c.Context(), userID)
+	if err != nil {
+		return helpers.HandleErrorResponse(c, err, ut.FailedGetMsg("User"))
+	}
+
+	return helpers.SuccessResponse(c, ut.SuccessRetrieveMsg("User"), user)
 }
 
 // GetUsers godoc
@@ -115,22 +120,19 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /v1/users [get]
 func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
-	queryParams := dto.ParseQueryParams(c)
+	queryParams := helpers.ParseQueryParams(c)
 
 	// Validate query parameters
-	if err := h.validator.Validate(queryParams.PaginationQuery); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid pagination parameters", err.Error()), "Invalid pagination parameters")
-	}
-	if err := h.validator.Validate(queryParams.FilterQuery); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid filter parameters", err.Error()), "Invalid filter parameters")
+	if err := h.validator.Validate(queryParams); err != nil {
+		return helpers.HandleErrorResponse(c, helpers.NewValidationError(ut.MsgErrInvalidQueryParams, err.Error()), ut.MsgErrInvalidQueryParams)
 	}
 
 	users, err := h.userUseCase.GetUsers(c.Context(), queryParams)
 	if err != nil {
-		return helpers.HandleError(c, err, "Failed to get users")
+		return helpers.HandleErrorResponse(c, err, ut.FailedGetMsg("Users"))
 	}
 
-	return helpers.PaginatedSuccessResponse(c, "Users retrieved successfully", users.GetUsersData(), users.GetPaginationMeta())
+	return helpers.PaginatedSuccessResponse(c, ut.SuccessRetrieveMsg("Users"), users.Data, users.Meta)
 }
 
 // UpdateUser godoc
@@ -142,7 +144,7 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 // @Param id path string true "User ID"
 // @Param name formData string false "Name"
 // @Param birth_date formData string false "Birth Date (RFC3339 format)"
-// @Param profile_photo formData file false "Profile Photo (JPG/PNG, max 2MB)"
+// @Param profile_photo_file formData file false "Profile Photo File (JPG/PNG, max 2MB)"
 // @Success 200 {object} dto.UserResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 401 {object} dto.ErrorResponse
@@ -152,40 +154,38 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return helpers.HandleError(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
+		return helpers.HandleErrorResponse(c, helpers.NewBadRequestError(ut.MsgErrIDRequired, ut.ErrIDRequired), ut.MsgErrIDRequired)
 	}
 
-	// Validate ID format
-	idParam := dto.IDParam{ID: id}
-	if err := h.validator.Validate(&idParam); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid user ID format", err.Error()), "Invalid user ID format")
-	}
-
-	// Handle form data with optional photo
-	req := &dto.UpdateUserRequest{}
-	config := validator.FormValidationConfig{
-		OptionalFields:   []string{"name", "birth_date"},
-		FileFields:       []string{"profile_photo"},
-		ValidateFiles:    true,
-		AllowEmptyUpdate: true,
-	}
-
-	formResult, err := h.validator.ValidateForm(c, req, config)
+	// Parse and validate UUID format
+	userID, err := uuid.Parse(id)
 	if err != nil {
-		return helpers.HandleError(c, err, "Form validation failed")
+		return helpers.HandleErrorResponse(c, helpers.NewBadRequestError(ut.MsgErrInvalidID, ut.ErrInvalidIDFormat), ut.MsgErrInvalidID)
 	}
 
-	// Get the validated DTO and profile photo
-	updateReq := formResult.Data.(*dto.UpdateUserRequest)
-	profilePhoto := formResult.Files["profile_photo"]
+	var req dto.UpdateUserRequest
 
-	// Update user with optional profile photo
-	user, err := h.userUseCase.UpdateUser(c.Context(), id, updateReq, profilePhoto)
+	// Parse and validate form data with strict field validation
+	if err := h.validator.ParseFormAndValidate(c, &req); err != nil {
+		if fiberErr, ok := err.(*fiber.Error); ok {
+			return helpers.HandleErrorResponse(c, helpers.NewBadRequestError(fiberErr.Message, fiberErr.Error()), fiberErr.Message)
+		}
+		return helpers.HandleErrorResponse(c, helpers.NewValidationError("Validation failed", err.Error()), "Validation failed")
+	}
+
+	// Validate profile photo file if uploaded
+	profilePhotoResult := h.validator.ValidateFile(req.ProfilePhotoFile, upload.ProfilePhotoValidation)
+	if !profilePhotoResult.Valid {
+		return helpers.HandleErrorResponse(c, helpers.NewBadRequestError("Profile photo validation failed", profilePhotoResult.Error), "Profile photo validation failed")
+	}
+
+	// Update user
+	user, err := h.userUseCase.UpdateUser(c.Context(), userID, &req)
 	if err != nil {
-		return helpers.HandleError(c, err, "User update failed")
+		return helpers.HandleErrorResponse(c, err, ut.FailedUpdateMsg("User"))
 	}
 
-	return helpers.SuccessResponse(c, "User updated successfully", user)
+	return helpers.SuccessResponse(c, ut.SuccessUpdateMsg("User"), user)
 }
 
 // DeleteUser godoc
@@ -203,18 +203,18 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return helpers.HandleError(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
+		return helpers.HandleErrorResponse(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
 	}
 
-	// Validate ID format
-	idParam := dto.IDParam{ID: id}
-	if err := h.validator.Validate(&idParam); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid user ID format", err.Error()), "Invalid user ID format")
-	}
-
-	err := h.userUseCase.DeleteUser(c.Context(), id)
+	// Parse and validate UUID format
+	userID, err := uuid.Parse(id)
 	if err != nil {
-		return helpers.HandleError(c, err, "User deletion failed")
+		return helpers.HandleErrorResponse(c, helpers.NewBadRequestError("Invalid user ID format", "User ID must be a valid UUID"), "Invalid user ID format")
+	}
+
+	err = h.userUseCase.DeleteUser(c.Context(), userID)
+	if err != nil {
+		return helpers.HandleErrorResponse(c, err, ut.FailedDeleteMsg("User"))
 	}
 
 	return helpers.NoContentResponse(c)
@@ -235,18 +235,18 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 func (h *UserHandler) RestoreUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return helpers.HandleError(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
+		return helpers.HandleErrorResponse(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
 	}
 
-	// Validate ID format
-	idParam := dto.IDParam{ID: id}
-	if err := h.validator.Validate(&idParam); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid user ID format", err.Error()), "Invalid user ID format")
-	}
-
-	err := h.userUseCase.RestoreUser(c.Context(), id)
+	// Parse and validate UUID format
+	userID, err := uuid.Parse(id)
 	if err != nil {
-		return helpers.HandleError(c, err, "User restoration failed")
+		return helpers.HandleErrorResponse(c, helpers.NewBadRequestError("Invalid user ID format", "User ID must be a valid UUID"), "Invalid user ID format")
+	}
+
+	err = h.userUseCase.RestoreUser(c.Context(), userID)
+	if err != nil {
+		return helpers.HandleErrorResponse(c, err, ut.FailedRestoreMsg("User"))
 	}
 
 	return helpers.NoContentResponse(c)
@@ -268,22 +268,22 @@ func (h *UserHandler) RestoreUser(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /v1/users/with-deleted [get]
 func (h *UserHandler) GetUsersWithDeleted(c *fiber.Ctx) error {
-	queryParams := dto.ParseQueryParams(c)
+	queryParams := helpers.ParseQueryParams(c)
 
 	// Validate query parameters
 	if err := h.validator.Validate(queryParams.PaginationQuery); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid pagination parameters", err.Error()), "Invalid pagination parameters")
+		return helpers.HandleErrorResponse(c, helpers.NewValidationError("Invalid pagination parameters", err.Error()), "Invalid pagination parameters")
 	}
 	if err := h.validator.Validate(queryParams.FilterQuery); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid filter parameters", err.Error()), "Invalid filter parameters")
+		return helpers.HandleErrorResponse(c, helpers.NewValidationError("Invalid filter parameters", err.Error()), "Invalid filter parameters")
 	}
 
 	users, err := h.userUseCase.GetUsersWithDeleted(c.Context(), queryParams)
 	if err != nil {
-		return helpers.HandleError(c, err, "Failed to get users with deleted")
+		return helpers.HandleErrorResponse(c, err, ut.FailedGetMsg("Users with deleted"))
 	}
 
-	return helpers.SuccessResponse(c, "Users retrieved successfully", users)
+	return helpers.SuccessResponse(c, ut.SuccessRetrieveMsg("Users with deleted"), users)
 }
 
 // GetOnlyDeletedUsers godoc
@@ -302,22 +302,22 @@ func (h *UserHandler) GetUsersWithDeleted(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /v1/users/deleted [get]
 func (h *UserHandler) GetOnlyDeletedUsers(c *fiber.Ctx) error {
-	queryParams := dto.ParseQueryParams(c)
+	queryParams := helpers.ParseQueryParams(c)
 
 	// Validate query parameters
 	if err := h.validator.Validate(queryParams.PaginationQuery); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid pagination parameters", err.Error()), "Invalid pagination parameters")
+		return helpers.HandleErrorResponse(c, helpers.NewValidationError("Invalid pagination parameters", err.Error()), "Invalid pagination parameters")
 	}
 	if err := h.validator.Validate(queryParams.FilterQuery); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid filter parameters", err.Error()), "Invalid filter parameters")
+		return helpers.HandleErrorResponse(c, helpers.NewValidationError("Invalid filter parameters", err.Error()), "Invalid filter parameters")
 	}
 
 	users, err := h.userUseCase.GetOnlyDeletedUsers(c.Context(), queryParams)
 	if err != nil {
-		return helpers.HandleError(c, err, "Failed to get deleted users")
+		return helpers.HandleErrorResponse(c, err, ut.FailedGetMsg("Deleted users"))
 	}
 
-	return helpers.SuccessResponse(c, "Deleted users retrieved successfully", users)
+	return helpers.SuccessResponse(c, ut.SuccessRetrieveMsg("Deleted users"), users)
 }
 
 // HardDeleteUser godoc
@@ -335,18 +335,18 @@ func (h *UserHandler) GetOnlyDeletedUsers(c *fiber.Ctx) error {
 func (h *UserHandler) HardDeleteUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return helpers.HandleError(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
+		return helpers.HandleErrorResponse(c, helpers.NewBadRequestError("User ID is required", "ID parameter is missing"), "User ID is required")
 	}
 
-	// Validate ID format
-	idParam := dto.IDParam{ID: id}
-	if err := h.validator.Validate(&idParam); err != nil {
-		return helpers.HandleError(c, helpers.NewValidationError("Invalid user ID format", err.Error()), "Invalid user ID format")
-	}
-
-	err := h.userUseCase.HardDeleteUser(c.Context(), id)
+	// Parse and validate UUID format
+	userID, err := uuid.Parse(id)
 	if err != nil {
-		return helpers.HandleError(c, err, "User hard deletion failed")
+		return helpers.HandleErrorResponse(c, helpers.NewBadRequestError("Invalid user ID format", "User ID must be a valid UUID"), "Invalid user ID format")
+	}
+
+	err = h.userUseCase.HardDeleteUser(c.Context(), userID)
+	if err != nil {
+		return helpers.HandleErrorResponse(c, err, ut.FailedDeleteMsg("User"))
 	}
 
 	return helpers.NoContentResponse(c)

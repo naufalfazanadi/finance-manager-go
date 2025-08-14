@@ -19,6 +19,11 @@ const (
 	UserRoleAdmin UserRole = "admin"
 )
 
+// TableName sets the table name
+func (User) TableName() string {
+	return "users"
+}
+
 type User struct {
 	ID                 uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	Email              string         `json:"email" gorm:"-"`                         // Decrypted email (not stored)
@@ -30,9 +35,14 @@ type User struct {
 	Password           string         `json:"-" gorm:"not null"`
 	Role               UserRole       `json:"role" gorm:"type:varchar(20);not null;default:'user'"`
 	ProfilePhoto       string         `json:"profile_photo" gorm:"column:profile_photo"`
+	IsDeleted          bool           `json:"is_deleted" gorm:"column:is_deleted;default:false;index"`
 	CreatedAt          time.Time      `json:"created_at"`
 	UpdatedAt          time.Time      `json:"updated_at"`
 	DeletedAt          gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+
+	// Relationships
+	// One-to-Many: User can have multiple wallets (if you need multiple wallets per user)
+	Wallets []Wallet `json:"wallets,omitempty" gorm:"foreignKey:UserID"`
 }
 
 // IsAdmin checks if user has admin role
@@ -45,14 +55,14 @@ func (u *User) IsUser() bool {
 	return u.Role == UserRoleUser
 }
 
-// IsDeleted checks if user is soft deleted
-func (u *User) IsDeleted() bool {
-	return u.DeletedAt.Valid
+// IsSoftDeleted checks if user is soft deleted (either by boolean flag or DeletedAt timestamp)
+func (u *User) IsSoftDeleted() bool {
+	return u.IsDeleted || u.DeletedAt.Valid
 }
 
-// IsActive checks if user is not soft deleted
+// IsActive checks if user is not soft deleted (neither boolean flag nor DeletedAt timestamp)
 func (u *User) IsActive() bool {
-	return !u.DeletedAt.Valid
+	return !u.IsDeleted && !u.DeletedAt.Valid
 }
 
 // GetAge calculates the user's age based on birth date
@@ -81,19 +91,21 @@ func (u *User) GetProfilePhotoURL() string {
 
 	// Get config and use public bucket for profile photos
 	cfg := config.GetConfig()
-	return minio.GetFullUrl(cfg.Minio.PublicBucket, u.ProfilePhoto)
+	return minio.GetFullUrl(cfg.Minio.PrivateBucket, u.ProfilePhoto)
 }
 
-// SoftDelete marks the user as deleted (sets DeletedAt timestamp)
+// SoftDelete marks the user as deleted (sets both boolean flag and DeletedAt timestamp)
 func (u *User) SoftDelete() {
+	u.IsDeleted = true
 	u.DeletedAt = gorm.DeletedAt{
 		Time:  time.Now(),
 		Valid: true,
 	}
 }
 
-// Restore removes the soft delete flag (clears DeletedAt)
+// Restore removes the soft delete flag (clears both boolean flag and DeletedAt)
 func (u *User) Restore() {
+	u.IsDeleted = false
 	u.DeletedAt = gorm.DeletedAt{
 		Valid: false,
 	}
@@ -254,9 +266,4 @@ func (u *User) AfterSave(tx *gorm.DB) error {
 	// Add any post-save logic here
 	// For example: audit logging, cache updates, etc.
 	return nil
-}
-
-// TableName sets the table name
-func (User) TableName() string {
-	return "users"
 }

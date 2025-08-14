@@ -10,7 +10,7 @@ import (
 type RegisterRequest struct {
 	Email     string `json:"email" validate:"required,email" example:"user@example.com"`
 	Name      string `json:"name" validate:"required,min=2,max=100" example:"John Doe"`
-	Password  string `json:"password" validate:"required,min=8,max=100" example:"password123"`
+	Password  string `json:"password" validate:"required,min=8,max=100,strongpassword" example:"Password123!"` // Must contain: 1 uppercase, 1 number, 1 special character
 	BirthDate string `json:"birth_date" validate:"required,datetime=2006-01-02" example:"1990-01-15"`
 }
 

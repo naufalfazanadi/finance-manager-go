@@ -100,11 +100,14 @@ func (c *client) UploadPrivate(ctx context.Context, object UploadPrivateDto) (re
 	contentType := http.DetectContentType(object.File)
 	fileSize := int64(len(object.File))
 	file := bytes.NewReader(object.File)
-	objectName := fmt.Sprintf("%s/", directory)
-	if object.Folder != "" {
-		objectName += fmt.Sprintf("%s/", object.Folder)
+	objectName := directory
+	if objectName != "" {
+		objectName += "/"
 	}
-	objectName += fmt.Sprintf("%s", strings.ToLower(object.FileName))
+	if object.Folder != "" {
+		objectName += object.Folder + "/"
+	}
+	objectName += strings.ToLower(object.FileName)
 	objectName = strings.ReplaceAll(objectName, " ", "_")
 
 	info, err := c.minioClient.PutObject(ctx, privateBucket, objectName, file, fileSize, minio.PutObjectOptions{ContentType: contentType})
@@ -119,7 +122,7 @@ func (c *client) UploadPrivate(ctx context.Context, object UploadPrivateDto) (re
 	getPrivateFile, _ := c.GetPrivate(ctx, downloadObject)
 
 	result = ReturnUploadDto{
-		Path:        fmt.Sprintf("%s", info.Key),
+		Path:        info.Key,
 		FullUrl:     getPrivateFile.FullUrl,
 		BucketName:  privateBucket,
 		FileSize:    fileSize,
@@ -134,11 +137,14 @@ func (c *client) UploadPublic(ctx context.Context, object UploadPublicDto) (resu
 	contentType := http.DetectContentType(object.File)
 	fileSize := int64(len(object.File))
 	file := bytes.NewReader(object.File)
-	objectName := fmt.Sprintf("%s/", directory)
-	if object.Folder != "" {
-		objectName += fmt.Sprintf("%s/", object.Folder)
+	objectName := directory
+	if objectName != "" {
+		objectName += "/"
 	}
-	objectName += fmt.Sprintf("%s", strings.ToLower(object.FileName))
+	if object.Folder != "" {
+		objectName += object.Folder + "/"
+	}
+	objectName += strings.ToLower(object.FileName)
 	objectName = strings.ReplaceAll(objectName, " ", "_")
 
 	info, err := c.minioClient.PutObject(ctx, publicBucket, objectName, file, fileSize, minio.PutObjectOptions{ContentType: contentType})
@@ -148,7 +154,7 @@ func (c *client) UploadPublic(ctx context.Context, object UploadPublicDto) (resu
 	}
 
 	result = ReturnUploadDto{
-		Path:        fmt.Sprintf("%s", info.Key),
+		Path:        info.Key,
 		FullUrl:     fmt.Sprintf("%s/%s/%s", c.minioClient.EndpointURL().String(), publicBucket, info.Key),
 		BucketName:  publicBucket,
 		FileSize:    fileSize,
