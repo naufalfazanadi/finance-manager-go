@@ -36,6 +36,7 @@ func ParseFilterQuery(c *fiber.Ctx) *dto.FilterQuery {
 	search := c.Query("search")
 	sortBy := c.Query("sort_by")
 	sortType := strings.ToLower(c.Query("sort_type"))
+	preload := c.Query("preload")
 
 	// Validate sort direction
 	if sortType != "asc" && sortType != "desc" {
@@ -51,6 +52,7 @@ func ParseFilterQuery(c *fiber.Ctx) *dto.FilterQuery {
 		"search":    true,
 		"sort_by":   true,
 		"sort_type": true,
+		"preload":   true,
 	}
 
 	for key, value := range queryMap {
@@ -64,6 +66,7 @@ func ParseFilterQuery(c *fiber.Ctx) *dto.FilterQuery {
 		SortBy:   sortBy,
 		SortType: sortType,
 		Filters:  filters,
+		Preload:  preload,
 	}
 }
 

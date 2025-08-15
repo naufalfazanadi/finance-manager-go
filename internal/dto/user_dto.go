@@ -27,20 +27,22 @@ type UpdateUserRequest struct {
 
 // Response DTOs
 type UserResponse struct {
-	ID           uuid.UUID  `json:"id" example:"123e4567-e89b-12d3-a456-426614174000"`
-	Email        string     `json:"email" example:"user@example.com"`
-	Name         string     `json:"name" example:"John Doe"`
-	Role         string     `json:"role" example:"user"`
-	BirthDate    *time.Time `json:"birth_date" example:"1990-01-15"`
-	Age          *int       `json:"age" example:"33"`
-	ProfilePhoto string     `json:"profile_photo" example:"https://minio.example.com/public/profile-photo/2023/01/profile_photo_1641024000.jpg"`
-	CreatedAt    time.Time  `json:"created_at" example:"2023-01-01"`
-	UpdatedAt    time.Time  `json:"updated_at" example:"2023-01-01"`
+	ID           uuid.UUID             `json:"id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Email        string                `json:"email" example:"user@example.com"`
+	Name         string                `json:"name" example:"John Doe"`
+	Role         string                `json:"role" example:"user"`
+	BirthDate    *time.Time            `json:"birth_date" example:"1990-01-15"`
+	Age          *int                  `json:"age" example:"33"`
+	ProfilePhoto string                `json:"profile_photo" example:"https://minio.example.com/public/profile-photo/2023/01/profile_photo_1641024000.jpg"`
+	CreatedAt    time.Time             `json:"created_at" example:"2023-01-01"`
+	UpdatedAt    time.Time             `json:"updated_at" example:"2023-01-01"`
+	Wallets      []WalletResponse      `json:"wallets,omitempty"`
+	Transactions []TransactionResponse `json:"transactions,omitempty"`
 }
 
 // MapToUserResponse converts a User entity to UserResponse DTO
 func MapToUserResponse(user *entities.User) *UserResponse {
-	return &UserResponse{
+	response := &UserResponse{
 		ID:           user.ID,
 		Email:        user.Email,
 		Name:         user.Name,
@@ -51,4 +53,22 @@ func MapToUserResponse(user *entities.User) *UserResponse {
 		CreatedAt:    user.CreatedAt,
 		UpdatedAt:    user.UpdatedAt,
 	}
+
+	// Include wallets data if it's preloaded
+	if len(user.Wallets) > 0 {
+		response.Wallets = make([]WalletResponse, len(user.Wallets))
+		for i, wallet := range user.Wallets {
+			response.Wallets[i] = *MapToWalletResponse(&wallet)
+		}
+	}
+
+	// Include transactions data if it's preloaded
+	if len(user.Transactions) > 0 {
+		response.Transactions = make([]TransactionResponse, len(user.Transactions))
+		for i, transaction := range user.Transactions {
+			response.Transactions[i] = *MapToTransactionResponse(&transaction)
+		}
+	}
+
+	return response
 }

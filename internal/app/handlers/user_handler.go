@@ -72,6 +72,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param id path string true "User ID"
+// @Param preload query string false "Comma-separated relations to preload (wallet,transactions)"
 // @Success 200 {object} dto.UserResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 401 {object} dto.ErrorResponse
@@ -94,7 +95,18 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 		return helpers.HandleErrorResponse(c, helpers.NewForbiddenError("You do not have permission", "Permission denied"), "Permission denied")
 	}
 
-	user, err := h.userUseCase.GetUser(c.Context(), userID)
+	// Parse query parameters for preloading
+	queryParams := helpers.ParseQueryParams(c)
+	preloadRelations := queryParams.GetPreloadRelations()
+
+	var user *dto.UserResponse
+	// Use preload method only if we have valid relations to preload
+	if len(preloadRelations) > 0 {
+		user, err = h.userUseCase.GetUserWithPreload(c.Context(), userID, preloadRelations)
+	} else {
+		user, err = h.userUseCase.GetUser(c.Context(), userID)
+	}
+
 	if err != nil {
 		return helpers.HandleErrorResponse(c, err, ut.FailedGetMsg("User"))
 	}
@@ -114,6 +126,7 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 // @Param sort_by query string false "Field to sort by (name, email, created_at)"
 // @Param sort_dir query string false "Sort direction (asc, desc)" default(asc)
 // @Param name query string false "Filter by exact name"
+// @Param preload query string false "Comma-separated relations to preload (wallet,transactions)"
 // @Success 200 {object} object{success=bool,message=string,data=[]dto.UserResponse,meta=dto.PaginationMeta}
 // @Failure 401 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
@@ -263,6 +276,7 @@ func (h *UserHandler) RestoreUser(c *fiber.Ctx) error {
 // @Param search query string false "Search term"
 // @Param sort_by query string false "Sort by field"
 // @Param sort_type query string false "Sort type (asc/desc)" default(desc)
+// @Param preload query string false "Comma-separated relations to preload (wallet,transactions)"
 // @Success 200 {object} dto.UsersResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Security BearerAuth
@@ -297,6 +311,7 @@ func (h *UserHandler) GetUsersWithDeleted(c *fiber.Ctx) error {
 // @Param search query string false "Search term"
 // @Param sort_by query string false "Sort by field"
 // @Param sort_type query string false "Sort type (asc/desc)" default(desc)
+// @Param preload query string false "Comma-separated relations to preload (wallet,transactions)"
 // @Success 200 {object} dto.UsersResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Security BearerAuth

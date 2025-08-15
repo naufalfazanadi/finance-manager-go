@@ -19,6 +19,7 @@ import (
 type UserUseCaseInterface interface {
 	CreateUser(ctx context.Context, req *dto.CreateUserRequest) (*dto.UserResponse, error)
 	GetUser(ctx context.Context, id uuid.UUID) (*dto.UserResponse, error)
+	GetUserWithPreload(ctx context.Context, id uuid.UUID, preloadRelations []string) (*dto.UserResponse, error)
 	GetUsers(ctx context.Context, queryParams *dto.QueryParams) (*dto.PaginationData[dto.UserResponse], error)
 	UpdateUser(ctx context.Context, id uuid.UUID, req *dto.UpdateUserRequest) (*dto.UserResponse, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) error // This now does soft delete
@@ -130,6 +131,21 @@ func (uc *UserUseCase) GetUser(ctx context.Context, id uuid.UUID) (*dto.UserResp
 	if err != nil {
 		logger.LogError(funcCtx, "failed to get user", err, logrus.Fields{
 			"user_id": id.String(),
+		})
+		return nil, helpers.NewNotFoundError("user not found", "")
+	}
+
+	return dto.MapToUserResponse(user), nil
+}
+
+func (uc *UserUseCase) GetUserWithPreload(ctx context.Context, id uuid.UUID, preloadRelations []string) (*dto.UserResponse, error) {
+	funcCtx := "GetUserWithPreload"
+
+	user, err := uc.userRepo.GetByIDWithPreload(ctx, id, preloadRelations)
+	if err != nil {
+		logger.LogError(funcCtx, "failed to get user with preload", err, logrus.Fields{
+			"user_id": id.String(),
+			"preload": preloadRelations,
 		})
 		return nil, helpers.NewNotFoundError("user not found", "")
 	}

@@ -5,46 +5,113 @@ A comprehensive clean architecture REST API built with Go, Fiber, and PostgreSQL
 ## 🚀 Features
 
 ### 💰 Finance Management
+- **Transaction Management**: Complete CRUD operations for income and expense transactions
 - **Wallet Management**: Complete CRUD operations for personal wallets with different types and categories
 - **Multi-Currency Support**: Handle different currencies (IDR, USD, EUR, etc.)
-- **Balance Tracking**: Track wallet balances with decimal precision
-- **Soft Delete**: Recoverable wallet deletion with restore functionality
+- **Balance Tracking**: Track wallet balances with decimal precision and automatic updates
+- **Transaction Categories**: Categorize transactions for better organization
+- **Transaction Types**: Support for income a## ⚙️ Configuration
+
+Environment variables are managed through `.env` file. Below are all available configuration options:
+
+### Database Configuration
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `DB_HOST` | Database host | `localhost` | Yes |
+| `DB_PORT` | Database port | `5432` | Yes |
+| `DB_USER` | Database username | `postgres` | Yes |
+| `DB_PASSWORD` | Database password | - | Yes |
+| `DB_NAME` | Database name | `clean_api_db` | Yes |
+| `DB_SSLMODE` | SSL mode | `disable` | Yes |
+
+### Database Connection Pool Settings
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `DB_MAX_OPEN_CONNS` | Maximum open connections | `25` | No |
+| `DB_MAX_IDLE_CONNS` | Maximum idle connections | `5` | No |
+| `DB_CONN_MAX_LIFETIME` | Connection lifetime (minutes) | `30` | No |
+| `DB_CONN_MAX_IDLE_TIME` | Idle timeout (minutes) | `5` | No |
+| `DB_MAX_RETRIES` | Retry attempts | `3` | No |
+| `DB_RETRY_DELAY` | Delay between retries (seconds) | `5` | No |
+| `DB_CONNECT_TIMEOUT` | Initial connection timeout (seconds) | `10` | No |
+
+### Server Configuration
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `SERVER_PORT` | Server port | `8080` | Yes |
+| `SERVER_HOST` | Server host | `localhost` | Yes |
+
+### Application Settings
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `APP_ENV` | Environment (development/production) | `development` | Yes |
+| `LOG_LEVEL` | Log level (debug/info/warn/error) | `debug` | Yes |
+
+### JWT Configuration
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `JWT_SECRET` | JWT signing secret | `your-secret-key-change-in-production` | Yes |
+| `JWT_EXPIRES_IN` | JWT token expiration | `24h` | Yes |
+
+### CORS Configuration
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `CORS_ALLOW_ORIGINS` | Allowed origins | `*` | No |
+| `CORS_ALLOW_METHODS` | Allowed methods | `GET,POST,PUT,DELETE,OPTIONS` | No |
+| `CORS_ALLOW_HEADERS` | Allowed headers | `Origin,Content-Type,Accept,Authorization` | No |
+
+### MinIO Configuration
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `MINIO_ENDPOINT` | MinIO server endpoint | `localhost:9000` | No |
+| `MINIO_ACCESS_KEY` | MinIO access key | `minioadmin` | No |
+| `MINIO_SECRET_KEY` | MinIO secret key | `minioadmin` | No |
+| `MINIO_USE_SSL` | Use SSL for MinIO | `false` | No |
+| `MINIO_PRIVATE_BUCKET` | Private bucket name | `private` | No |
+| `MINIO_PUBLIC_BUCKET` | Public bucket name | `public` | No |
+| `MINIO_DIRECTORY` | Directory prefix | `` | No |tions with proper wallet impact calculation
+- **Soft Delete**: Recoverable deletion with restore functionality for both transactions and wallets
 
 ### 🔐 Authentication & Security
-- **JWT Authentication**: Secure token-based authentication with role-based access control
-- **Strong Password Validation**: Password strength requirements (uppercase, number, special character)
+- **JWT Authentication**: Secure token-based authentication with configurable expiration
+- **Strong Password Validation**: Password strength requirements with custom validation
 - **Password Security**: Bcrypt password hashing with secure storage
 - **Role-Based Access**: Admin and user roles with protected endpoints
-- **Email Encryption**: PII data encryption for user emails and sensitive information
+- **PII Encryption**: Advanced encryption for user emails and sensitive information
+- **Rate Limiting**: Built-in rate limiting middleware for API protection
 
 ### 👥 User Management
 - **Complete User CRUD**: Create, read, update, delete operations with validation
-- **Profile Photos**: Upload and manage user profile photos with Minio integration
+- **Profile Photos**: Upload and manage user profile photos with MinIO integration
 - **User Filtering**: Advanced search, sorting, and pagination capabilities
 - **Soft Delete Support**: Recoverable user deletion with restore functionality
 - **Birth Date Management**: Encrypted birth date storage with age calculation
+- **DataDog Integration**: Built-in monitoring and tracing capabilities
 
 ### 📁 File Management
-- **Minio Integration**: Secure file storage with public/private bucket support
+- **MinIO Integration**: Secure file storage with public/private bucket support
 - **Profile Photo Upload**: Support for JPEG, PNG formats with size validation
 - **File Validation**: Comprehensive file type and size validation
 - **Automatic Cleanup**: Failed upload rollback and old file cleanup
+- **Upload Helper**: Centralized upload utilities with validation configs
 
 ### 🏗️ Technical Features
 - **Clean Architecture**: Domain-driven design with clear separation of concerns
 - **RESTful API**: Built with Fiber web framework v2.52.9
-- **Database**: PostgreSQL with GORM ORM v1.30.1
-- **Middleware**: JWT authentication, CORS, error handling, and logging middleware
-- **Dependency Injection**: Centralized container for managing dependencies
+- **Database**: PostgreSQL with GORM ORM v1.30.1 and optimized connection pooling
+- **Middleware**: JWT authentication, CORS, error handling, rate limiting, and logging middleware
+- **Dependency Injection**: Centralized container for managing all application dependencies
 - **Structured Logging**: Comprehensive logging with Logrus and contextual information
 - **Advanced Validation**: Request validation with custom rules and file validation
 - **Live Reload**: Development with Air (like nodemon for Go)
 - **UUID Support**: Google UUID for unique identifiers throughout the system
-- **Environment Management**: dotenv for configuration
+- **Environment Management**: Comprehensive configuration with dotenv
 - **Error Handling**: Comprehensive error responses with custom AppError types
 - **API Documentation**: Interactive Swagger/OpenAPI documentation with examples
-- **Generic Pagination**: Type-safe pagination system with PaginationData[T]
+- **Generic Pagination**: Type-safe pagination system with metadata
 - **Swagger UI**: Interactive API documentation accessible at `/swagger/index.html`
+- **Query Parser**: Advanced query parsing for filtering and sorting
+- **Health Checks**: Built-in health check endpoints
 
 ## 📋 Prerequisites
 
@@ -77,7 +144,7 @@ A comprehensive clean architecture REST API built with Go, Fiber, and PostgreSQL
    ```
    Edit `.env` file with your configuration:
    ```properties
-   # Database
+   # Database Configuration
    DB_HOST=localhost
    DB_PORT=5432
    DB_USER=postgres
@@ -85,11 +152,20 @@ A comprehensive clean architecture REST API built with Go, Fiber, and PostgreSQL
    DB_NAME=finance_manager_db
    DB_SSLMODE=disable
 
-   # Server
+   # Database Connection Pool Settings
+   DB_MAX_OPEN_CONNS=25
+   DB_MAX_IDLE_CONNS=5
+   DB_CONN_MAX_LIFETIME=30
+   DB_CONN_MAX_IDLE_TIME=5
+   DB_MAX_RETRIES=3
+   DB_RETRY_DELAY=5
+   DB_CONNECT_TIMEOUT=10
+
+   # Server Configuration
    SERVER_PORT=8080
    SERVER_HOST=localhost
 
-   # Application
+   # Application Settings
    APP_ENV=development
    LOG_LEVEL=debug
 
@@ -129,8 +205,8 @@ A comprehensive clean architecture REST API built with Go, Fiber, and PostgreSQL
 
 7. **Run database migrations**
    ```bash
-   # Migrations will run automatically on application start
-   # Check /migrations folder for SQL files
+   # Database schema will be auto-migrated on application start
+   # Check internal/domain/entities/ for entity definitions
    ```
 
 ## 🏃‍♂️ Running the Application
@@ -173,7 +249,9 @@ make start        # Run without live reload
 make clean        # Clean build artifacts
 make test         # Run tests
 make deps         # Download dependencies
+make install-air  # Install air for development
 make fmt          # Format code
+make lint         # Lint code (requires golangci-lint)
 make tidy         # Tidy dependencies
 make help         # Show all commands
 ```
@@ -318,39 +396,106 @@ Content-Type: application/json
 # Delete wallet (Protected - soft delete)
 DELETE /api/v1/wallets/{id}
 Authorization: Bearer <jwt_token>
+
+# Restore wallet (Protected - user can restore own wallets, admin can restore any)
+PUT /api/v1/wallets/{id}/restore
+Authorization: Bearer <jwt_token>
+```
+
+### Transaction Management Endpoints
+```bash
+# Create transaction (Protected - user can create own transactions, admin can create for any user)
+POST /api/v1/transactions
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+{
+  "name": "Grocery Shopping",
+  "cost": 150.75,
+  "type": "expense",
+  "note": "Weekly grocery shopping",
+  "t_category": "food",
+  "user_id": "123e4567-e89b-12d3-a456-426614174000",
+  "wallet_id": "123e4567-e89b-12d3-a456-426614174001"
+}
+
+# Get all transactions (Protected - user sees own transactions, admin sees all)
+GET /api/v1/transactions?page=1&limit=10&search=grocery&sort_by=created_at&sort_type=desc
+Authorization: Bearer <jwt_token>
+
+# Get transaction by ID (Protected - user can access own transactions, admin can access all)
+GET /api/v1/transactions/{id}
+Authorization: Bearer <jwt_token>
+
+# Update transaction (Protected - user can update own transactions, admin can update any)
+PUT /api/v1/transactions/{id}
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+{
+  "name": "Updated Grocery Shopping",
+  "cost": 175.25,
+  "note": "Weekly grocery shopping with extra items"
+}
+
+# Delete transaction (Protected - soft delete)
+DELETE /api/v1/transactions/{id}
+Authorization: Bearer <jwt_token>
+
+# Restore transaction (Protected - user can restore own transactions, admin can restore any)
+PUT /api/v1/transactions/{id}/restore
+Authorization: Bearer <jwt_token>
+
+# Get transactions by wallet (Protected)
+GET /api/v1/transactions/wallet/{wallet_id}?page=1&limit=10
+Authorization: Bearer <jwt_token>
+
+# Get transactions by type (Protected)
+GET /api/v1/transactions?type=income&page=1&limit=10
+GET /api/v1/transactions?type=expense&page=1&limit=10
+Authorization: Bearer <jwt_token>
 ```
 
 ### Advanced Query Features
 
-The API supports comprehensive filtering, sorting, and pagination:
+The API supports comprehensive filtering, sorting, and pagination across all endpoints:
 
 ```bash
-# Pagination
+# Pagination (all endpoints)
 GET /api/v1/users?page=2&limit=10
 GET /api/v1/wallets?page=1&limit=5
+GET /api/v1/transactions?page=1&limit=20
 
-# Search users by name or email
-GET /api/v1/users?search=john
-
-# Search wallets by name, type, or category
-GET /api/v1/wallets?search=savings
+# Search functionality
+GET /api/v1/users?search=john                # Search users by name or email
+GET /api/v1/wallets?search=savings           # Search wallets by name, type, or category
+GET /api/v1/transactions?search=grocery      # Search transactions by name or note
 
 # Filter by specific fields
 GET /api/v1/users?role=admin
 GET /api/v1/wallets?category=personal&type=savings
+GET /api/v1/transactions?type=income&t_category=salary
 
-# Sort users (available: name, email, created_at, updated_at)
+# Sort options (available fields vary by endpoint)
+# Users: name, email, created_at, updated_at
 GET /api/v1/users?sort_by=created_at&sort_type=desc
 
-# Sort wallets (available: name, type, category, created_at, updated_at)
+# Wallets: name, type, category, balance, created_at, updated_at
 GET /api/v1/wallets?sort_by=balance&sort_type=asc
+
+# Transactions: name, cost, type, created_at, updated_at
+GET /api/v1/transactions?sort_by=cost&sort_type=desc
 
 # Date range filtering
 GET /api/v1/users?created_after=2024-01-01&created_before=2024-12-31
 GET /api/v1/wallets?created_after=2024-01-01&created_before=2024-12-31
+GET /api/v1/transactions?created_after=2024-01-01&created_before=2024-12-31
 
-# Combined filtering example
+# Combined filtering examples
 GET /api/v1/wallets?search=savings&category=personal&sort_by=balance&sort_type=desc&page=1&limit=10
+GET /api/v1/transactions?type=expense&t_category=food&sort_by=cost&sort_type=desc&page=1&limit=10
+
+# Soft delete filtering (admin only)
+GET /api/v1/users/with-deleted?page=1&limit=10    # Include soft deleted records
+GET /api/v1/users/deleted?page=1&limit=10         # Only soft deleted records
 ```
 
 ### Response Format
@@ -374,6 +519,38 @@ GET /api/v1/wallets?search=savings&category=personal&sort_by=balance&sort_type=d
 }
 ```
 
+#### Transaction Response
+```json
+{
+  "success": true,
+  "message": "Transaction retrieved successfully",
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "Grocery Shopping",
+    "cost": 150.75,
+    "type": "expense",
+    "note": "Weekly grocery shopping",
+    "t_category": "food",
+    "user_id": "123e4567-e89b-12d3-a456-426614174000",
+    "wallet_id": "123e4567-e89b-12d3-a456-426614174001",
+    "is_deleted": false,
+    "user": {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "name": "John Doe",
+      "email": "user@example.com"
+    },
+    "wallet": {
+      "id": "123e4567-e89b-12d3-a456-426614174001",
+      "name": "My Checking Account",
+      "type": "checking",
+      "currency": "IDR"
+    },
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
 #### Wallet Response
 ```json
 {
@@ -387,6 +564,7 @@ GET /api/v1/wallets?search=savings&category=personal&sort_by=balance&sort_type=d
     "balance": 1000.50,
     "currency": "IDR",
     "user_id": "123e4567-e89b-12d3-a456-426614174000",
+    "is_deleted": false,
     "user": {
       "id": "123e4567-e89b-12d3-a456-426614174000",
       "name": "John Doe",
@@ -474,29 +652,36 @@ finance-manager-go/
 │   │   ├── handlers/                   # HTTP handlers (controllers)
 │   │   │   ├── auth_handler.go         # Authentication HTTP handlers
 │   │   │   ├── health_handler.go       # Health check handlers
+│   │   │   ├── transaction_handler.go  # Transaction HTTP handlers
 │   │   │   ├── user_handler.go         # User HTTP handlers
 │   │   │   └── wallet_handler.go       # Wallet HTTP handlers
 │   │   ├── middleware/                 # HTTP middleware
-│   │   │   └── middleware.go           # JWT auth, CORS, error handling
+│   │   │   ├── middleware.go           # JWT auth, CORS, error handling
+│   │   │   └── rate_limiter.go         # Rate limiting middleware
 │   │   └── routes/                     # Route definitions
 │   │       ├── auth_route.go           # Authentication routes
 │   │       ├── routes.go               # Main router setup
+│   │       ├── transaction_route.go    # Transaction routes
 │   │       ├── user_route.go           # User routes
 │   │       └── wallet_route.go         # Wallet routes
 │   ├── domain/                         # Domain Layer (Business Logic)
 │   │   ├── entities/                   # Domain entities
+│   │   │   ├── transaction.go          # Transaction entity with types and calculations
 │   │   │   ├── user.go                 # User entity with roles and encryption
 │   │   │   └── wallet.go               # Wallet entity with soft delete
 │   │   ├── repositories/               # Repository interfaces
+│   │   │   ├── transaction_repository.go # Transaction repository interface
 │   │   │   ├── user_repository.go      # User repository interface
 │   │   │   └── wallet_repository.go    # Wallet repository interface
 │   │   └── usecases/                   # Business use cases
 │   │       ├── auth_usecase.go         # Authentication business logic
+│   │       ├── transaction_usecase.go  # Transaction business logic
 │   │       ├── user_usecase.go         # User business logic
 │   │       └── wallet_usecase.go       # Wallet business logic
 │   ├── dto/                            # Data Transfer Objects
 │   │   ├── auth_dto.go                 # Authentication DTOs
 │   │   ├── common_dto.go               # Common DTOs (responses, pagination)
+│   │   ├── transaction_dto.go          # Transaction-specific DTOs
 │   │   ├── user_dto.go                 # User-specific DTOs
 │   │   └── wallet_dto.go               # Wallet-specific DTOs
 │   └── infrastructure/                 # Infrastructure Layer
@@ -505,7 +690,7 @@ finance-manager-go/
 │       │   └── password.go             # Password hashing with validation
 │       ├── cache/                      # Cache infrastructure (future)
 │       └── database/                   # Database infrastructure
-│           └── postgres.go             # PostgreSQL connection
+│           └── postgres.go             # PostgreSQL connection with pooling
 ├── pkg/                               # Shared Packages
 │   ├── config/                        # Configuration management
 │   │   └── config.go                  # App configuration with all settings
@@ -528,17 +713,7 @@ finance-manager-go/
 │   │   └── constant.go                # Application constants and messages
 │   └── validator/                     # Validation utilities
 │       └── validator.go               # Custom validators with file support
-├── migrations/                        # Database migrations
-│   ├── 003_add_password_to_users.sql  # Password field migration
-│   ├── 004_add_role_to_users.sql      # User roles migration
-│   ├── 005_add_soft_delete_to_users.sql # User soft delete migration
-│   ├── 006_add_encrypted_email_to_users.sql # Email encryption migration
-│   ├── 007_add_birth_date_encrypted_to_users.sql # Birth date encryption
-│   ├── 008_make_email_nullable.sql    # Email nullable migration
-│   ├── 009_add_profile_photo_to_users.sql # Profile photo migration
-│   ├── 010_rename_profile_photo_column.sql # Photo column rename
-│   ├── 011_add_profile_photo_to_users.sql # Profile photo fix
-│   └── 012_add_deleted_boolean_to_users_and_wallets.sql # Boolean soft delete
+├── migrations/                        # Database migrations (currently empty - auto-migration used)
 ├── docs/                             # Documentation
 │   ├── docs.go                       # Swagger docs generation
 │   ├── swagger.json                  # Generated Swagger JSON
@@ -552,49 +727,17 @@ finance-manager-go/
 ├── tmp/                              # Temporary build files
 │   ├── build-errors.log              # Build error logs
 │   ├── finance-manager               # Linux binary
-│   └── finance-manager.exe           # Windows binary
+│   ├── main                          # Linux binary (alternative)
+│   ├── main.exe                      # Windows binary
+│   ├── server.exe                    # Windows server binary
+│   └── test-build                    # Test build artifacts
 ├── worker/                           # Background workers (future)
 ├── .air.toml                         # Air configuration
 ├── .env.example                      # Environment template
+├── dev.bat                           # Windows development script
 ├── Dockerfile                        # Docker configuration
-├── dev.bat                           # Windows development script
 ├── Makefile                          # Build commands
-├── README.md                         # This file
-├── go.mod                            # Go modules
-└── go.sum                            # Go dependencies checksum
-```
-│           └── postgres.go             # PostgreSQL connection
-├── pkg/                               # Shared Packages
-│   ├── config/                        # Configuration management
-│   │   └── config.go                  # App configuration with JWT settings
-│   ├── helpers/                       # Helper utilities
-│   │   ├── errors.go                  # Custom error types and handling
-│   │   └── response.go                # HTTP response utilities
-│   ├── logger/                        # Logging utilities
-│   │   └── logger.go                  # Structured logger with context
-│   ├── types/                         # Shared types
-│   │   └── database.go                # Database configuration types
-│   ├── utils/                         # Common utilities
-│   │   └── constant.go                # Application constants
-│   └── validator/                     # Validation utilities
-│       └── validator.go               # Custom validators
-├── migrations/                        # Database migrations
-│   ├── 003_add_password_to_users.sql  # Password field migration
-│   └── 004_add_role_to_users.sql      # User roles migration
-├── docs/                             # Documentation
-│   └── FILTERING_EXAMPLES.md         # API filtering examples
-├── scripts/                          # Build and deployment scripts
-├── tmp/                              # Temporary build files
-│   ├── build-errors.log              # Build error logs
-│   ├── main                          # Linux binary
-│   └── main.exe                      # Windows binary
-├── worker/                           # Background workers (future)
-├── .air.toml                         # Air configuration
-├── .env.example                      # Environment template
-├── AUTHENTICATION_SUMMARY.md         # Authentication implementation guide
-├── DEPENDENCY_INJECTION.md           # DI architecture documentation
-├── dev.bat                           # Windows development script
-├── Makefile                          # Build commands
+├── project-structure.txt             # Project structure documentation
 ├── README.md                         # This file
 ├── go.mod                            # Go modules
 └── go.sum                            # Go dependencies checksum
@@ -603,26 +746,27 @@ finance-manager-go/
 ### Clean Architecture Layers
 
 1. **Domain Layer** (`internal/domain/`): Core business logic and entities
-   - **Entities**: Business objects with business rules (User with roles)
-   - **Repositories**: Interfaces for data access with filtering support
-   - **Use Cases**: Application-specific business rules (Auth & User management)
+   - **Entities**: Business objects with business rules (User, Wallet, Transaction)
+   - **Repositories**: Interfaces for data access with advanced filtering support
+   - **Use Cases**: Application-specific business rules (Auth, User, Wallet, Transaction management)
 
 2. **Application Layer** (`internal/app/`): Application services and handlers
    - **Container**: Centralized dependency injection container
-   - **Handlers**: HTTP request/response handling for auth and users
-   - **Middleware**: Cross-cutting concerns (JWT auth, CORS, error handling)
+   - **Handlers**: HTTP request/response handling for all entities
+   - **Middleware**: Cross-cutting concerns (JWT auth, CORS, rate limiting, error handling)
    - **Routes**: API endpoint definitions with authentication
 
 3. **Infrastructure Layer** (`internal/infrastructure/`): External concerns
-   - **Database**: Data persistence implementation with PostgreSQL
+   - **Database**: Data persistence implementation with PostgreSQL and connection pooling
    - **Auth**: Authentication services (JWT, password hashing)
 
 4. **Shared Layer** (`pkg/`): Common utilities and configurations
-   - **Config**: Application configuration with JWT settings
-   - **Helpers**: Error handling and HTTP response utilities
+   - **Config**: Comprehensive application configuration with environment management
+   - **Helpers**: Error handling, query parsing, and HTTP response utilities
    - **Logger**: Structured logging with contextual information
-   - **Types**: Common type definitions
-   - **Validator**: Request validation utilities
+   - **MinIO**: File storage service with upload/download capabilities
+   - **Validator**: Request validation utilities with file support
+   - **Encryption**: PII data encryption for sensitive information
 
 ## 🔐 Authentication Architecture
 
@@ -637,17 +781,13 @@ The application implements a comprehensive JWT-based authentication system:
 - **Protected Routes**: Middleware-based route protection using JWT validation
 - **Profile Management**: Access authenticated user profile information
 
-### Authentication Services
-- **JWT Service**: Token generation, validation, and extraction from headers
-- **Password Service**: Secure password hashing and verification using bcrypt
-- **Auth Manager**: Centralized authentication service coordination
-
 ### Security Measures
 - **Password Hashing**: All passwords hashed using bcrypt with default cost
 - **Token Expiration**: JWT tokens expire after configurable time (default: 24h)
 - **Secure Headers**: Proper Authorization header validation
 - **Input Validation**: Request payload validation for all auth endpoints
 - **Error Handling**: Consistent error responses without information leakage
+- **Rate Limiting**: Built-in rate limiting to prevent abuse
 
 ## 📦 Dependency Injection Architecture
 
@@ -666,11 +806,11 @@ Container → Repositories → Infrastructure → Use Cases → Handlers → Rou
 ```
 
 ### Available Dependencies
-- **Repositories**: User repository with database operations
-- **Infrastructure**: Auth manager, JWT service, password service
-- **Use Cases**: Authentication and user business logic
-- **Handlers**: HTTP request handlers for auth and user endpoints
-- **Middleware**: JWT authentication and authorization middleware
+- **Repositories**: User, Wallet, and Transaction repositories with database operations
+- **Infrastructure**: Database connections, MinIO client, authentication services
+- **Use Cases**: Authentication, user, wallet, and transaction business logic
+- **Handlers**: HTTP request handlers for all endpoints
+- **Middleware**: JWT authentication, authorization, and rate limiting middleware
 
 ## 📖 Additional Documentation
 
@@ -709,6 +849,9 @@ go test -v ./...
 - **Bcrypt**: Password hashing for security
 - **UUID v1.6.0**: UUID generation
 - **Godotenv v1.5.1**: Environment variable loading
+- **MinIO Client v7.0.95**: Object storage client for file management
+- **Swaggo**: Swagger documentation generation
+- **DataDog Tracing v1.74.3**: Application performance monitoring and tracing
 
 ### Development Dependencies
 - **Air**: Live reload for development
@@ -748,6 +891,7 @@ APP_ENV=production
 LOG_LEVEL=info
 DB_SSLMODE=require
 JWT_SECRET=your-super-secure-random-secret-key
+MINIO_USE_SSL=true
 ```
 
 ## 🚀 Deployment
@@ -766,10 +910,14 @@ make build
 - [ ] Set APP_ENV to "production"
 - [ ] Use strong database passwords
 - [ ] Enable SSL/TLS for database connections (set DB_SSLMODE=require)
+- [ ] Enable SSL for MinIO (set MINIO_USE_SSL=true)
+- [ ] Configure proper MinIO access credentials
 - [ ] Set up proper firewall rules
 - [ ] Use environment variables for all secrets
+- [ ] Configure database connection pool settings for production load
 - [ ] Enable request logging and monitoring
 - [ ] Set up database backups
+- [ ] Configure DataDog tracing for production monitoring
 
 ### Docker (Coming Soon)
 ```bash
@@ -782,10 +930,12 @@ docker-compose up -d
 
 ## 🔍 Development Tools
 
-- **Air**: Live reload during development
-- **VS Code Tasks**: Pre-configured development tasks
-- **Makefile**: Common development commands
-- **Windows Batch Scripts**: Windows-specific development commands
+- **Air**: Live reload during development with `.air.toml` configuration
+- **VS Code Tasks**: Pre-configured development tasks including live reload server
+- **Makefile**: Common development commands with help documentation
+- **Windows Batch Scripts**: Windows-specific development commands (`dev.bat`)
+- **Swagger**: Interactive API documentation generation
+- **DataDog**: Application performance monitoring and tracing
 
 ## 🤝 Contributing
 

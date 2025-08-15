@@ -15,6 +15,7 @@ import (
 type UserRepository interface {
 	Create(ctx context.Context, user *entities.User) error
 	GetByID(ctx context.Context, id uuid.UUID) (*entities.User, error)
+	GetByIDWithPreload(ctx context.Context, id uuid.UUID, preloadRelations []string) (*entities.User, error)
 	GetByEmailHash(ctx context.Context, emailHash string) (*entities.User, error)
 	GetOne(ctx context.Context, filter map[string]interface{}) (*entities.User, error)
 	GetAll(ctx context.Context, queryParams *dto.QueryParams) ([]*entities.User, error)
@@ -56,6 +57,24 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.U
 	return &user, nil
 }
 
+func (r *userRepository) GetByIDWithPreload(ctx context.Context, id uuid.UUID, preloadRelations []string) (*entities.User, error) {
+	var user entities.User
+	query := r.db.WithContext(ctx)
+
+	// Apply preloading for specified relations
+	for _, relation := range preloadRelations {
+		query = query.Preload(relation)
+	}
+
+	if err := query.First(&user, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *userRepository) GetByEmailHash(ctx context.Context, emailHash string) (*entities.User, error) {
 	var user entities.User
 	if err := r.db.WithContext(ctx).First(&user, "email_hash = ?", emailHash).Error; err != nil {
@@ -87,6 +106,12 @@ func (r *userRepository) GetOne(ctx context.Context, filter map[string]interface
 func (r *userRepository) GetAll(ctx context.Context, queryParams *dto.QueryParams) ([]*entities.User, error) {
 	var users []*entities.User
 	query := r.db.WithContext(ctx)
+
+	// Apply preloading if specified
+	preloadRelations := queryParams.GetPreloadRelations()
+	for _, relation := range preloadRelations {
+		query = query.Preload(relation)
+	}
 
 	// Apply search if provided
 	if queryParams.HasSearch() {
@@ -243,6 +268,12 @@ func (r *userRepository) GetWithDeleted(ctx context.Context, queryParams *dto.Qu
 	var users []*entities.User
 	query := r.db.WithContext(ctx).Unscoped()
 
+	// Apply preloading if specified
+	preloadRelations := queryParams.GetPreloadRelations()
+	for _, relation := range preloadRelations {
+		query = query.Preload(relation)
+	}
+
 	// Apply search if provided
 	if queryParams.HasSearch() {
 		searchTerm := "%" + queryParams.Search + "%"
@@ -303,6 +334,12 @@ func (r *userRepository) GetWithDeleted(ctx context.Context, queryParams *dto.Qu
 func (r *userRepository) GetOnlyDeleted(ctx context.Context, queryParams *dto.QueryParams) ([]*entities.User, error) {
 	var users []*entities.User
 	query := r.db.WithContext(ctx).Unscoped().Where("deleted_at IS NOT NULL")
+
+	// Apply preloading if specified
+	preloadRelations := queryParams.GetPreloadRelations()
+	for _, relation := range preloadRelations {
+		query = query.Preload(relation)
+	}
 
 	// Apply search if provided
 	if queryParams.HasSearch() {

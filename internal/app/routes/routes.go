@@ -21,11 +21,14 @@ func Setup(dependencies *container.ServiceContainer) *fiber.App {
 	app.Use(fiberLogger.New())
 	app.Use(middleware.CORS())
 
+	// Rate limiter middleware - Global rate limiting
+	app.Use(middleware.DefaultRateLimiter())
+
 	// Swagger endpoint
 	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 
-	// Health check endpoints with database monitoring
-	healthHandler := handlers.NewHealthHandler(dependencies.GetDB())
+	// Health check endpoints with database and Minio monitoring
+	healthHandler := handlers.NewHealthHandler(dependencies.GetDB(), dependencies.GetMinioClient())
 
 	// Basic health check
 	app.Get("/", healthHandler.CheckHealth)
@@ -34,13 +37,23 @@ func Setup(dependencies *container.ServiceContainer) *fiber.App {
 	// Database health check with connection stats
 	app.Get("/health/db", healthHandler.CheckDatabase)
 
+	// Minio health check
+	app.Get("/health/minio", healthHandler.CheckMinio)
+
+	// Comprehensive health check for all services
+	app.Get("/health/all", healthHandler.CheckAll)
+
 	// API routes
 	api := app.Group("/api")
+
+	// API-specific rate limiter - More restrictive for API endpoints
+	api.Use(middleware.APIRateLimiter())
 
 	// Setup routes with centralized dependencies
 	AuthRoutes(api, dependencies)
 	UserRoutes(api, dependencies)
 	WalletRoutes(api, dependencies)
+	TransactionRoutes(api, dependencies)
 
 	return app
 }

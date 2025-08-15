@@ -1,6 +1,8 @@
 package dto
 
 import (
+	"strings"
+
 	"github.com/google/uuid"
 )
 
@@ -23,6 +25,7 @@ type FilterQuery struct {
 	SortBy   string            `json:"sort_by" query:"sort_by" validate:"omitempty"`
 	SortType string            `json:"sort_type" query:"sort_type" validate:"omitempty,oneof=asc desc"`
 	Filters  map[string]string `json:"filters" query:"filters"`
+	Preload  string            `json:"preload" query:"preload" validate:"omitempty"`
 }
 
 // Combined Query for pagination and filtering
@@ -73,4 +76,31 @@ func (f *FilterQuery) HasSort() bool {
 func (f *FilterQuery) GetFilterValue(key string) (string, bool) {
 	value, exists := f.Filters[key]
 	return value, exists
+}
+
+// HasPreload checks if preload query is provided
+func (f *FilterQuery) HasPreload() bool {
+	return f.Preload != ""
+}
+
+// GetPreloadRelations returns a slice of relations to preload
+func (f *FilterQuery) GetPreloadRelations() []string {
+	if !f.HasPreload() {
+		return []string{}
+	}
+
+	relations := make([]string, 0)
+	for _, relation := range strings.Split(f.Preload, ",") {
+		trimmed := strings.TrimSpace(relation)
+		if trimmed != "" {
+			// Validate allowed relations for security
+			switch strings.ToLower(trimmed) {
+			case "wallet", "wallets":
+				relations = append(relations, "Wallets")
+			case "transaction", "transactions":
+				relations = append(relations, "Transactions")
+			}
+		}
+	}
+	return relations
 }

@@ -42,7 +42,8 @@ type User struct {
 
 	// Relationships
 	// One-to-Many: User can have multiple wallets (if you need multiple wallets per user)
-	Wallets []Wallet `json:"wallets,omitempty" gorm:"foreignKey:UserID"`
+	Wallets      []Wallet      `json:"wallets,omitempty" gorm:"foreignKey:UserID"`
+	Transactions []Transaction `json:"transactions,omitempty" gorm:"foreignKey:UserID"`
 }
 
 // IsAdmin checks if user has admin role

@@ -27,7 +27,8 @@ type Wallet struct {
 
 	// Relationships
 	// Belongs to User
-	User User `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	User         User          `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Transactions []Transaction `json:"transactions,omitempty" gorm:"foreignKey:WalletID"`
 }
 
 // IsSoftDeleted checks if wallet is soft deleted (either by boolean flag or DeletedAt timestamp)
