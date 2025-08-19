@@ -59,26 +59,39 @@ func main() {
 	// Initialize centralized dependency container
 	dependencies := container.NewServiceContainer(db, validator)
 
+	// Start background workers
+	cronWorker := dependencies.CronWorker
+	cronWorker.Start()
+	logger.Info("Cron worker started successfully")
+
 	// Setup routes with dependencies
 	app := routes.Setup(dependencies)
 
-	// Start server
+	// Prepare server address
 	serverAddr := cfg.Server.Host + ":" + cfg.Server.Port
-	logger.Info("Starting server on " + serverAddr)
 
-	if err := app.Listen(":" + cfg.Server.Port); err != nil {
-		logger.Fatal("Failed to start server: " + err.Error())
-	}
+	// Start server in a goroutine
+	go func() {
+		logger.Info("Starting server on " + serverAddr)
+		if err := app.Listen(":" + cfg.Server.Port); err != nil {
+			logger.Fatal("Failed to start server: " + err.Error())
+		}
+	}()
 
 	// graceful shutdown
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	go func() {
-		<-c
-		logger.Info("Shutting down server...")
-		if err := app.Shutdown(); err != nil {
-			logger.Error("Error during shutdown: " + err.Error())
-		}
-	}()
+	<-c
+	logger.Info("Shutting down server and workers...")
+
+	// Stop background workers first
+	cronWorker.Stop()
+
+	// Then stop the server
+	if err := app.Shutdown(); err != nil {
+		logger.Error("Error during server shutdown: " + err.Error())
+	}
+
+	logger.Info("Server and workers shut down successfully")
 }

@@ -17,9 +17,12 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*entities.User, error)
 	GetByIDWithPreload(ctx context.Context, id uuid.UUID, preloadRelations []string) (*entities.User, error)
 	GetByEmailHash(ctx context.Context, emailHash string) (*entities.User, error)
+	GetByForgotPasswordToken(ctx context.Context, token string) (*entities.User, error)
 	GetOne(ctx context.Context, filter map[string]interface{}) (*entities.User, error)
 	GetAll(ctx context.Context, queryParams *dto.QueryParams) ([]*entities.User, error)
 	Update(ctx context.Context, user *entities.User) error
+	UpdateForgotPasswordToken(ctx context.Context, userID uuid.UUID, token string) error
+	ClearForgotPasswordToken(ctx context.Context, userID uuid.UUID) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	Count(ctx context.Context) (int64, error)
 	CountWithFilters(ctx context.Context, queryParams *dto.QueryParams) (int64, error)
@@ -78,6 +81,17 @@ func (r *userRepository) GetByIDWithPreload(ctx context.Context, id uuid.UUID, p
 func (r *userRepository) GetByEmailHash(ctx context.Context, emailHash string) (*entities.User, error) {
 	var user entities.User
 	if err := r.db.WithContext(ctx).First(&user, "email_hash = ?", emailHash).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *userRepository) GetByForgotPasswordToken(ctx context.Context, token string) (*entities.User, error) {
+	var user entities.User
+	if err := r.db.WithContext(ctx).First(&user, "forgot_password_token = ?", token).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
 		}
@@ -172,6 +186,38 @@ func (r *userRepository) Update(ctx context.Context, user *entities.User) error 
 	if err := r.db.WithContext(ctx).Save(user).Error; err != nil {
 		return err
 	}
+	return nil
+}
+
+func (r *userRepository) UpdateForgotPasswordToken(ctx context.Context, userID uuid.UUID, token string) error {
+	result := r.db.WithContext(ctx).Model(&entities.User{}).
+		Where("id = ?", userID).
+		Update("forgot_password_token", token)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return errors.New("user not found")
+	}
+
+	return nil
+}
+
+func (r *userRepository) ClearForgotPasswordToken(ctx context.Context, userID uuid.UUID) error {
+	result := r.db.WithContext(ctx).Model(&entities.User{}).
+		Where("id = ?", userID).
+		Update("forgot_password_token", "")
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return errors.New("user not found")
+	}
+
 	return nil
 }
 

@@ -35,6 +35,8 @@ type Config struct {
 	JWT      JWTConfig
 	CORS     CORSConfig
 	Minio    MinioConfig
+	Redis    RedisConfig
+	SMTP     SMTPConfig
 }
 
 type ServerConfig struct {
@@ -66,6 +68,28 @@ type MinioConfig struct {
 	PrivateBucket string
 	PublicBucket  string
 	Directory     string
+}
+
+type RedisConfig struct {
+	Host        string
+	Port        string
+	Password    string
+	DB          int
+	MaxRetries  int
+	PoolSize    int
+	MinIdle     int
+	MaxIdle     int
+	DialTimeout int
+	ReadTimeout int
+}
+
+type SMTPConfig struct {
+	Host      string
+	Port      int
+	Username  string
+	Password  string
+	FromEmail string
+	FromName  string
 }
 
 var globalConfig *Config
@@ -121,6 +145,26 @@ func LoadConfig() *Config {
 			PrivateBucket: getEnv("MINIO_PRIVATE_BUCKET", "private"),
 			PublicBucket:  getEnv("MINIO_PUBLIC_BUCKET", "public"),
 			Directory:     getEnv("MINIO_DIRECTORY", ""),
+		},
+		Redis: RedisConfig{
+			Host:        getEnv("REDIS_HOST", "localhost"),
+			Port:        getEnv("REDIS_PORT", "6379"),
+			Password:    getEnv("REDIS_PASSWORD", ""),
+			DB:          getEnvAsInt("REDIS_DB", 0),
+			MaxRetries:  getEnvAsInt("REDIS_MAX_RETRIES", 3),
+			PoolSize:    getEnvAsInt("REDIS_POOL_SIZE", 10),
+			MinIdle:     getEnvAsInt("REDIS_MIN_IDLE", 5),
+			MaxIdle:     getEnvAsInt("REDIS_MAX_IDLE", 10),
+			DialTimeout: getEnvAsInt("REDIS_DIAL_TIMEOUT", 5), // seconds
+			ReadTimeout: getEnvAsInt("REDIS_READ_TIMEOUT", 3), // seconds
+		},
+		SMTP: SMTPConfig{
+			Host:      getEnv("SMTP_HOST", "smtp.gmail.com"),
+			Port:      getEnvAsInt("SMTP_PORT", 587),
+			Username:  getEnv("SMTP_USERNAME", ""),
+			Password:  getEnv("SMTP_PASSWORD", ""),
+			FromEmail: getEnv("SMTP_FROM_EMAIL", ""),
+			FromName:  getEnv("SMTP_FROM_NAME", "Finance Manager"),
 		},
 	}
 

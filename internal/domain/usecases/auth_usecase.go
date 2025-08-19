@@ -3,6 +3,8 @@ package usecases
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +15,7 @@ import (
 	"github.com/naufalfazanadi/finance-manager-go/pkg/encryption"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/helpers"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/logger"
+	"github.com/naufalfazanadi/finance-manager-go/pkg/mail"
 	"github.com/sirupsen/logrus"
 )
 
@@ -20,6 +23,9 @@ type AuthUseCaseInterface interface {
 	Register(ctx context.Context, req *dto.RegisterRequest) (*dto.AuthResponse, error)
 	Login(ctx context.Context, req *dto.LoginRequest) (*dto.LoginResponse, error)
 	GetProfile(ctx context.Context, userID uuid.UUID) (*dto.UserResponse, error)
+	ChangePassword(ctx context.Context, userID uuid.UUID, req *dto.ChangePasswordRequest) error
+	ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) error
+	ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) error
 }
 
 type AuthUseCase struct {
@@ -169,4 +175,235 @@ func (uc *AuthUseCase) GetProfile(ctx context.Context, userID uuid.UUID) (*dto.U
 	}
 
 	return dto.MapToUserResponse(user), nil
+}
+
+func (uc *AuthUseCase) ChangePassword(ctx context.Context, userID uuid.UUID, req *dto.ChangePasswordRequest) error {
+	funcCtx := "ChangePassword"
+
+	// Get user by ID
+	user, err := uc.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		logger.LogError(funcCtx, "failed to get user", err, logrus.Fields{
+			"user_id": userID.String(),
+		})
+		return helpers.NewNotFoundError("user not found", "")
+	}
+
+	// Verify old password
+	if err := auth.CheckPassword(user.Password, req.OldPassword); err != nil {
+		logger.LogError(funcCtx, "invalid old password", nil, logrus.Fields{
+			"user_id": userID.String(),
+		})
+		return helpers.NewBadRequestError("invalid old password", "")
+	}
+
+	// Validate new password strength
+	if err := auth.ValidatePasswordStrength(req.NewPassword); err != nil {
+		logger.LogError(funcCtx, "new password validation failed", err, logrus.Fields{
+			"user_id": userID.String(),
+		})
+		return helpers.NewBadRequestError("new password validation failed", err.Error())
+	}
+
+	// Check if new password is different from old password
+	if err := auth.CheckPassword(user.Password, req.NewPassword); err == nil {
+		logger.LogError(funcCtx, "new password same as old password", nil, logrus.Fields{
+			"user_id": userID.String(),
+		})
+		return helpers.NewBadRequestError("new password must be different from current password", "")
+	}
+
+	// Hash new password
+	hashedPassword, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		logger.LogError(funcCtx, "failed to hash new password", err, logrus.Fields{
+			"user_id": userID.String(),
+		})
+		return helpers.NewInternalError("failed to hash new password", err.Error())
+	}
+
+	// Update password
+	user.Password = hashedPassword
+	if err := uc.userRepo.Update(ctx, user); err != nil {
+		logger.LogError(funcCtx, "failed to update user password", err, logrus.Fields{
+			"user_id": userID.String(),
+		})
+		return helpers.NewInternalError("failed to update password", err.Error())
+	}
+
+	logger.LogSuccess(funcCtx, "password changed successfully", logrus.Fields{
+		"user_id": userID.String(),
+	})
+
+	return nil
+}
+
+func (uc *AuthUseCase) ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) error {
+	funcCtx := "ForgotPassword"
+
+	// Hash the email to lookup user
+	hashResult := encryption.HashSHA256(req.Email)
+	if hashResult.Error != nil {
+		logger.LogError(funcCtx, "failed to hash email", hashResult.Error, logrus.Fields{"email": req.Email})
+		return helpers.NewInternalError("failed to process email", hashResult.Error.Error())
+	}
+
+	emailHash := hashResult.Data.(string)
+
+	// Get user by email hash
+	user, err := uc.userRepo.GetByEmailHash(ctx, emailHash)
+	if err != nil {
+		logger.LogError(funcCtx, "user not found", err, logrus.Fields{
+			"email_hash": emailHash,
+		})
+		return helpers.NewNotFoundError("user not found", "")
+	}
+
+	// Check if user already has a forgot password token and if it's still in cooldown period
+	if user.ForgotPasswordToken != "" {
+		_, timestamp, err := encryption.DecryptResetToken(user.ForgotPasswordToken)
+		if err == nil {
+			// Check cooldown (3 minutes = 180000 milliseconds)
+			if err := encryption.CheckResetTokenCooldown(timestamp, 180000); err != nil {
+				logger.LogError(funcCtx, "forgot password cooldown active", nil, logrus.Fields{
+					"user_id": user.ID.String(),
+				})
+				return helpers.NewConflictError("password reset request too frequent", err.Error())
+			}
+		}
+	}
+
+	// Generate random string for token
+	randomString := encryption.GenerateRandomString(32)
+
+	// Encrypt the token with timestamp
+	forgotPasswordToken, err := encryption.EncryptResetToken(randomString)
+	if err != nil {
+		logger.LogError(funcCtx, "failed to encrypt token", err, logrus.Fields{
+			"user_id": user.ID.String(),
+		})
+		return helpers.NewInternalError("failed to generate reset token", err.Error())
+	}
+
+	// Update user with forgot password token
+	if err := uc.userRepo.UpdateForgotPasswordToken(ctx, user.ID, forgotPasswordToken); err != nil {
+		logger.LogError(funcCtx, "failed to update forgot password token", err, logrus.Fields{
+			"user_id": user.ID.String(),
+		})
+		return helpers.NewInternalError("failed to update user", err.Error())
+	}
+
+	// Generate reset URL
+	frontendURL := getEnv("FRONTEND_URL", "http://localhost:3000")
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", frontendURL, forgotPasswordToken)
+
+	// Prepare template data
+	templateData := mail.EmailTemplateData{
+		Name:     user.Name,
+		ResetURL: resetURL,
+	}
+
+	// Render email template using LoadTemplate
+	htmlBody, err := mail.LoadTemplate("forgot_password.html", templateData)
+	if err != nil {
+		logger.LogError(funcCtx, "failed to render email template", err, logrus.Fields{
+			"user_id": user.ID.String(),
+		})
+		return helpers.NewInternalError("failed to prepare email", err.Error())
+	}
+
+	// Send reset password email with rendered template
+	subject := "Reset Your Password - Finance Manager"
+	if err := mail.SendEmailWithTemplate(user.Email, subject, htmlBody); err != nil {
+		logger.LogError(funcCtx, "failed to send reset password email", err, logrus.Fields{
+			"user_id": user.ID.String(),
+			"email":   user.Email,
+		})
+		// Don't return error to user for email sending failure for security reasons
+		// Just log it and return success
+	}
+
+	logger.LogSuccess(funcCtx, "forgot password token generated and email sent", logrus.Fields{
+		"user_id": user.ID.String(),
+	})
+
+	return nil
+}
+
+func (uc *AuthUseCase) ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) error {
+	funcCtx := "ResetPassword"
+
+	// URL decode the token (replace spaces with + if needed)
+	token := strings.ReplaceAll(req.Token, " ", "+")
+
+	// Get user by forgot password token
+	user, err := uc.userRepo.GetByForgotPasswordToken(ctx, token)
+	if err != nil {
+		logger.LogError(funcCtx, "invalid or expired reset token", err, logrus.Fields{
+			"token": token,
+		})
+		return helpers.NewNotFoundError("invalid or expired reset token", "")
+	}
+
+	// Validate new password strength
+	if err := auth.ValidatePasswordStrength(req.NewPassword); err != nil {
+		logger.LogError(funcCtx, "new password validation failed", err, logrus.Fields{
+			"user_id": user.ID.String(),
+		})
+		return helpers.NewBadRequestError("password validation failed", err.Error())
+	}
+
+	// Decrypt and validate token
+	_, timestamp, err := encryption.DecryptResetToken(token)
+	if err != nil {
+		logger.LogError(funcCtx, "failed to decrypt token", err, logrus.Fields{
+			"user_id": user.ID.String(),
+		})
+		return helpers.NewBadRequestError("invalid reset token", "")
+	}
+
+	// Check if token has expired (24 hours = 86400000 milliseconds)
+	if err := encryption.ValidateResetTokenExpiry(timestamp, 86400000); err != nil {
+		// Clear the expired token
+		uc.userRepo.ClearForgotPasswordToken(ctx, user.ID)
+
+		logger.LogError(funcCtx, "reset token expired", err, logrus.Fields{
+			"user_id": user.ID.String(),
+		})
+		return helpers.NewConflictError("reset token has expired", "")
+	}
+
+	// Hash new password
+	hashedPassword, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		logger.LogError(funcCtx, "failed to hash new password", err, logrus.Fields{
+			"user_id": user.ID.String(),
+		})
+		return helpers.NewInternalError("failed to hash new password", err.Error())
+	}
+
+	// Update user password and clear forgot password token
+	user.Password = hashedPassword
+	user.ForgotPasswordToken = ""
+
+	if err := uc.userRepo.Update(ctx, user); err != nil {
+		logger.LogError(funcCtx, "failed to update user password", err, logrus.Fields{
+			"user_id": user.ID.String(),
+		})
+		return helpers.NewInternalError("failed to update password", err.Error())
+	}
+
+	logger.LogSuccess(funcCtx, "password reset successfully", logrus.Fields{
+		"user_id": user.ID.String(),
+	})
+
+	return nil
+}
+
+// getEnv gets environment variable with fallback
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
 }

@@ -28,7 +28,7 @@ func Setup(dependencies *container.ServiceContainer) *fiber.App {
 	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 
 	// Health check endpoints with database and Minio monitoring
-	healthHandler := handlers.NewHealthHandler(dependencies.GetDB(), dependencies.GetMinioClient())
+	healthHandler := handlers.NewHealthHandler(dependencies.DB, dependencies.MinioClient)
 
 	// Basic health check
 	app.Get("/", healthHandler.CheckHealth)
@@ -54,6 +54,7 @@ func Setup(dependencies *container.ServiceContainer) *fiber.App {
 	UserRoutes(api, dependencies)
 	WalletRoutes(api, dependencies)
 	TransactionRoutes(api, dependencies)
+	WorkerRoutes(api, dependencies)
 
 	return app
 }

@@ -9,8 +9,8 @@ import (
 // AuthRoutes handles authentication-related routes using centralized dependencies
 func AuthRoutes(api fiber.Router, dependencies *container.ServiceContainer) {
 	// Get handlers and middleware from centralized container
-	authMiddleware := dependencies.GetAuthMiddleware()
-	authHandler := dependencies.GetAuthHandler()
+	authMiddleware := dependencies.AuthMiddleware
+	authHandler := dependencies.AuthHandler
 
 	// Auth routes
 	v1 := api.Group("/v1")
@@ -22,7 +22,10 @@ func AuthRoutes(api fiber.Router, dependencies *container.ServiceContainer) {
 	// Public routes
 	auth.Post("/register", authHandler.Register)
 	auth.Post("/login", authHandler.Login)
+	auth.Post("/forgot-password", authHandler.ForgotPassword)
+	auth.Post("/reset-password", authHandler.ResetPassword)
 
 	// Protected routes
 	auth.Get("/profile", authMiddleware.JWTAuth(), authHandler.GetProfile)
+	auth.Put("/change-password", authMiddleware.JWTAuth(), authHandler.ChangePassword)
 }

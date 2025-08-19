@@ -5,6 +5,7 @@ import (
 	"github.com/naufalfazanadi/finance-manager-go/internal/app/middleware"
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/repositories"
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/usecases"
+	"github.com/naufalfazanadi/finance-manager-go/internal/worker"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/logger"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/minio"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/validator"
@@ -31,12 +32,17 @@ type ServiceContainer struct {
 	UserUseCase        usecases.UserUseCaseInterface
 	WalletUseCase      usecases.WalletUseCaseInterface
 	TransactionUseCase usecases.TransactionUseCaseInterface
+	BalanceSyncUseCase usecases.BalanceSyncUseCaseInterface
+
+	// Workers
+	CronWorker *worker.CronWorker
 
 	// Handlers
 	AuthHandler        *handlers.AuthHandler
 	UserHandler        *handlers.UserHandler
 	WalletHandler      *handlers.WalletHandler
 	TransactionHandler *handlers.TransactionHandler
+	WorkerHandler      *handlers.WorkerHandler
 }
 
 // NewServiceContainer creates and initializes all application dependencies
@@ -70,12 +76,17 @@ func NewServiceContainer(db *gorm.DB, validator *validator.Validator) *ServiceCo
 	userUseCase := usecases.NewUserUseCase(userRepo)
 	walletUseCase := usecases.NewWalletUseCase(walletRepo, userRepo)
 	transactionUseCase := usecases.NewTransactionUseCase(transactionRepo, walletRepo, userRepo, db)
+	balanceSyncUseCase := usecases.NewBalanceSyncUseCase(walletRepo, transactionRepo, db)
+
+	// Initialize workers
+	cronWorker := worker.NewCronWorker(balanceSyncUseCase, db)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authUseCase, validator)
 	userHandler := handlers.NewUserHandler(userUseCase, validator)
 	walletHandler := handlers.NewWalletHandler(walletUseCase, validator)
 	transactionHandler := handlers.NewTransactionHandler(transactionUseCase, validator)
+	workerHandler := handlers.NewWorkerHandler(cronWorker)
 
 	// Log successful service container initialization
 	logger.LogSuccess(
@@ -95,64 +106,12 @@ func NewServiceContainer(db *gorm.DB, validator *validator.Validator) *ServiceCo
 		UserUseCase:        userUseCase,
 		WalletUseCase:      walletUseCase,
 		TransactionUseCase: transactionUseCase,
+		BalanceSyncUseCase: balanceSyncUseCase,
+		CronWorker:         cronWorker,
 		AuthHandler:        authHandler,
 		UserHandler:        userHandler,
 		WalletHandler:      walletHandler,
 		TransactionHandler: transactionHandler,
+		WorkerHandler:      workerHandler,
 	}
-}
-
-// GetAuthHandler returns the auth handler
-func (sc *ServiceContainer) GetAuthHandler() *handlers.AuthHandler {
-	return sc.AuthHandler
-}
-
-// GetUserHandler returns the user handler
-func (sc *ServiceContainer) GetUserHandler() *handlers.UserHandler {
-	return sc.UserHandler
-}
-
-// GetWalletHandler returns the wallet handler
-func (sc *ServiceContainer) GetWalletHandler() *handlers.WalletHandler {
-	return sc.WalletHandler
-}
-
-// GetTransactionHandler returns the transaction handler
-func (sc *ServiceContainer) GetTransactionHandler() *handlers.TransactionHandler {
-	return sc.TransactionHandler
-}
-
-// GetAuthMiddleware returns the auth middleware
-func (sc *ServiceContainer) GetAuthMiddleware() *middleware.AuthMiddleware {
-	return sc.AuthMiddleware
-}
-
-// GetAuthUseCase returns the auth use case
-func (sc *ServiceContainer) GetAuthUseCase() usecases.AuthUseCaseInterface {
-	return sc.AuthUseCase
-}
-
-// GetUserUseCase returns the user use case
-func (sc *ServiceContainer) GetUserUseCase() usecases.UserUseCaseInterface {
-	return sc.UserUseCase
-}
-
-// GetWalletUseCase returns the wallet use case
-func (sc *ServiceContainer) GetWalletUseCase() usecases.WalletUseCaseInterface {
-	return sc.WalletUseCase
-}
-
-// GetTransactionUseCase returns the transaction use case
-func (sc *ServiceContainer) GetTransactionUseCase() usecases.TransactionUseCaseInterface {
-	return sc.TransactionUseCase
-}
-
-// GetDB returns the database instance
-func (sc *ServiceContainer) GetDB() *gorm.DB {
-	return sc.DB
-}
-
-// GetMinioClient returns the MinIO client instance
-func (sc *ServiceContainer) GetMinioClient() minio.Client {
-	return sc.MinioClient
 }

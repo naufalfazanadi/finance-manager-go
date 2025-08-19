@@ -67,9 +67,38 @@ Environment variables are managed through `.env` file. Below are all available c
 | `MINIO_ACCESS_KEY` | MinIO access key | `minioadmin` | No |
 | `MINIO_SECRET_KEY` | MinIO secret key | `minioadmin` | No |
 | `MINIO_USE_SSL` | Use SSL for MinIO | `false` | No |
+### Email (SMTP) Configuration
+SMTP settings are now managed via the application's config system (`pkg/config/config.go`).
+You can set these via environment variables in your `.env` file, and they will be loaded into the config struct at startup:
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `SMTP_HOST` | SMTP server host | `smtp.gmail.com` | Yes |
+| `SMTP_PORT` | SMTP server port | `587` | Yes |
+| `SMTP_USERNAME` | SMTP username | - | Yes |
+| `SMTP_PASSWORD` | SMTP password or app password | - | Yes |
+| `SMTP_FROM_EMAIL` | From email address | - | Yes |
+| `SMTP_FROM_NAME` | From name | `Finance Manager` | No |
+| `FRONTEND_URL` | Frontend URL for reset links | `http://localhost:3000` | No |
+
+**Note:**
+- The application uses the `SMTPConfig` struct in `pkg/config/config.go` to manage all SMTP settings.
+- The mail sending logic (`pkg/mail/mail.go`) now always reads SMTP config from the config package, not directly from environment variables.
+- Update your `.env` file as before; the config loader will handle the rest.
 | `MINIO_PRIVATE_BUCKET` | Private bucket name | `private` | No |
 | `MINIO_PUBLIC_BUCKET` | Public bucket name | `public` | No |
-| `MINIO_DIRECTORY` | Directory prefix | `` | No |tions with proper wallet impact calculation
+| `MINIO_DIRECTORY` | Directory prefix | `` | No |
+
+### Email Configuration (For Password Reset)
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `SMTP_HOST` | SMTP server host | `smtp.gmail.com` | Yes |
+| `SMTP_PORT` | SMTP server port | `587` | Yes |
+| `SMTP_USERNAME` | SMTP username | - | Yes |
+| `SMTP_PASSWORD` | SMTP password or app password | - | Yes |
+| `SMTP_FROM_EMAIL` | From email address | - | Yes |
+| `SMTP_FROM_NAME` | From name | `Finance Manager` | No |
+| `FRONTEND_URL` | Frontend URL for reset links | `http://localhost:3000` | No |tions with proper wallet impact calculation
 - **Soft Delete**: Recoverable deletion with restore functionality for both transactions and wallets
 
 ### 🔐 Authentication & Security

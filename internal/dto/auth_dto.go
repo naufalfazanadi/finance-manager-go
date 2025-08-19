@@ -19,6 +19,20 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required" example:"password123"`
 }
 
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password" validate:"required" example:"oldpassword123"`
+	NewPassword string `json:"new_password" validate:"required,min=8,max=100,strongpassword" example:"NewPassword123!"`
+}
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email" validate:"required,email" example:"user@example.com"`
+}
+
+type ResetPasswordRequest struct {
+	Token       string `json:"token" validate:"required" example:"encrypted-reset-token"`
+	NewPassword string `json:"new_password" validate:"required,min=8,max=100,strongpassword" example:"NewPassword123!"`
+}
+
 // Authentication Response DTOs
 type AuthResponse struct {
 	UserResponse

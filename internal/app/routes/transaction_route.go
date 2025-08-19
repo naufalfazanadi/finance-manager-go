@@ -8,8 +8,8 @@ import (
 // TransactionRoutes handles transaction-related routes using centralized dependencies
 func TransactionRoutes(api fiber.Router, dependencies *container.ServiceContainer) {
 	// Get handlers and middleware from centralized container
-	authMiddleware := dependencies.GetAuthMiddleware()
-	transactionHandler := dependencies.GetTransactionHandler()
+	authMiddleware := dependencies.AuthMiddleware
+	transactionHandler := dependencies.TransactionHandler
 
 	// Transaction routes
 	v1 := api.Group("/v1")

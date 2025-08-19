@@ -99,3 +99,92 @@ func (h *AuthHandler) GetProfile(c *fiber.Ctx) error {
 
 	return helpers.SuccessResponse(c, "Profile retrieved successfully", result)
 }
+
+// ChangePassword godoc
+// @Summary Change user password
+// @Description Change password for the authenticated user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param password body dto.ChangePasswordRequest true "Change password data"
+// @Success 200 {object} helpers.Response
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Security BearerAuth
+// @Router /v1/auth/change-password [put]
+func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
+	var req dto.ChangePasswordRequest
+
+	// Parse and validate request
+	if err := h.validator.ParseAndValidate(c, &req); err != nil {
+		return helpers.HandleErrorResponse(c, helpers.NewValidationError("Validation failed", err.Error()), "Invalid request body")
+	}
+
+	userID := c.Locals("userID").(uuid.UUID)
+	if userID == uuid.Nil {
+		return helpers.HandleErrorResponse(c, helpers.NewUnauthorizedError("Unauthorized", "User ID not found in token"), "Unauthorized")
+	}
+
+	err := h.authUseCase.ChangePassword(c.Context(), userID, &req)
+	if err != nil {
+		return helpers.HandleErrorResponse(c, err, "Failed to change password")
+	}
+
+	return helpers.SuccessResponse(c, "Password changed successfully", nil)
+}
+
+// ForgotPassword godoc
+// @Summary Request password reset
+// @Description Send password reset email to user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param forgot_password body dto.ForgotPasswordRequest true "Forgot password data"
+// @Success 200 {object} helpers.Response
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 409 {object} dto.ErrorResponse
+// @Router /v1/auth/forgot-password [post]
+func (h *AuthHandler) ForgotPassword(c *fiber.Ctx) error {
+	var req dto.ForgotPasswordRequest
+
+	// Parse and validate request
+	if err := h.validator.ParseAndValidate(c, &req); err != nil {
+		return helpers.HandleErrorResponse(c, helpers.NewValidationError("Validation failed", err.Error()), "Invalid request body")
+	}
+
+	err := h.authUseCase.ForgotPassword(c.Context(), &req)
+	if err != nil {
+		return helpers.HandleErrorResponse(c, err, "Failed to process forgot password request")
+	}
+
+	return helpers.SuccessResponse(c, "Password reset email sent successfully", nil)
+}
+
+// ResetPassword godoc
+// @Summary Reset password with token
+// @Description Reset user password using reset token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param reset_password body dto.ResetPasswordRequest true "Reset password data"
+// @Success 200 {object} helpers.Response
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 409 {object} dto.ErrorResponse
+// @Router /v1/auth/reset-password [post]
+func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
+	var req dto.ResetPasswordRequest
+
+	// Parse and validate request
+	if err := h.validator.ParseAndValidate(c, &req); err != nil {
+		return helpers.HandleErrorResponse(c, helpers.NewValidationError("Validation failed", err.Error()), "Invalid request body")
+	}
+
+	err := h.authUseCase.ResetPassword(c.Context(), &req)
+	if err != nil {
+		return helpers.HandleErrorResponse(c, err, "Failed to reset password")
+	}
+
+	return helpers.SuccessResponse(c, "Password reset successfully", nil)
+}

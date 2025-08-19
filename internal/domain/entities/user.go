@@ -25,20 +25,21 @@ func (User) TableName() string {
 }
 
 type User struct {
-	ID                 uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	Email              string         `json:"email" gorm:"-"`                         // Decrypted email (not stored)
-	EmailHash          string         `json:"-" gorm:"column:email_hash;uniqueIndex"` // Hash for indexing
-	EmailEncrypted     string         `json:"-" gorm:"column:email_encrypted"`        // Encrypted email storage
-	BirthDate          *time.Time     `json:"birth_date" gorm:"-"`                    // Decrypted birth date (not stored)
-	BirthDateEncrypted string         `json:"-" gorm:"column:birth_date_encrypted"`   // Encrypted birth date storage
-	Name               string         `json:"name" gorm:"not null"`
-	Password           string         `json:"-" gorm:"not null"`
-	Role               UserRole       `json:"role" gorm:"type:varchar(20);not null;default:'user'"`
-	ProfilePhoto       string         `json:"profile_photo" gorm:"column:profile_photo"`
-	IsDeleted          bool           `json:"is_deleted" gorm:"column:is_deleted;default:false;index"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	DeletedAt          gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+	ID                  uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	Email               string         `json:"email" gorm:"-"`                         // Decrypted email (not stored)
+	EmailHash           string         `json:"-" gorm:"column:email_hash;uniqueIndex"` // Hash for indexing
+	EmailEncrypted      string         `json:"-" gorm:"column:email_encrypted"`        // Encrypted email storage
+	BirthDate           *time.Time     `json:"birth_date" gorm:"-"`                    // Decrypted birth date (not stored)
+	BirthDateEncrypted  string         `json:"-" gorm:"column:birth_date_encrypted"`   // Encrypted birth date storage
+	Name                string         `json:"name" gorm:"not null"`
+	Password            string         `json:"-" gorm:"not null"`
+	Role                UserRole       `json:"role" gorm:"type:varchar(20);not null;default:'user'"`
+	ProfilePhoto        string         `json:"profile_photo" gorm:"column:profile_photo"`
+	ForgotPasswordToken string         `json:"-" gorm:"column:forgot_password_token"` // Token for password reset
+	IsDeleted           bool           `json:"is_deleted" gorm:"column:is_deleted;default:false;index"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	DeletedAt           gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 
 	// Relationships
 	// One-to-Many: User can have multiple wallets (if you need multiple wallets per user)

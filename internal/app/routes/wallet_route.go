@@ -8,8 +8,8 @@ import (
 // WalletRoutes handles wallet-related routes using centralized dependencies
 func WalletRoutes(api fiber.Router, dependencies *container.ServiceContainer) {
 	// Get handlers and middleware from centralized container
-	authMiddleware := dependencies.GetAuthMiddleware()
-	walletHandler := dependencies.GetWalletHandler()
+	authMiddleware := dependencies.AuthMiddleware
+	walletHandler := dependencies.WalletHandler
 
 	// Wallet routes
 	v1 := api.Group("/v1")

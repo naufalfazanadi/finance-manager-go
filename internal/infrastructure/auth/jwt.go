@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/entities"
 	"github.com/naufalfazanadi/finance-manager-go/internal/domain/repositories"
+	"github.com/naufalfazanadi/finance-manager-go/internal/infrastructure/cache"
 	"github.com/naufalfazanadi/finance-manager-go/pkg/config"
 )
 
@@ -49,12 +50,8 @@ func GenerateToken(user *entities.User) (string, error) {
 	if err != nil {
 		// Fallback to 24 hours if parsing fails
 		expirationDuration = 24 * time.Hour
-		// fmt.Printf("Warning: Failed to parse JWT_EXPIRES_IN, using default 24h: %v\n", err)
 	}
 	expirationTime := now.Add(expirationDuration)
-
-	// fmt.Printf("Token generation - Current time: %v (Unix: %d)\n", now, now.Unix())
-	// fmt.Printf("Token generation - Expiration time: %v (Unix: %d)\n", expirationTime, expirationTime.Unix())
 
 	claims := &JWTClaims{
 		UserID: user.ID,
@@ -74,7 +71,11 @@ func GenerateToken(user *entities.User) (string, error) {
 		return "", err
 	}
 
-	// fmt.Printf("Token generated successfully\n")
+	// Cache user data for faster lookups (optional, don't fail if error)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_ = cache.SetUser(ctx, user, expirationDuration)
+
 	return tokenString, nil
 }
 
@@ -114,19 +115,35 @@ func ValidateTokenWithDB(ctx context.Context, tokenString string, userRepo repos
 		return nil, err
 	}
 
-	// Then, check if the user still exists in the database
+	// Try to get user from Redis cache
+	cachedUser, err := cache.GetUser(ctx, claims.UserID)
+	if err == nil && cachedUser != nil {
+		// Found user in cache, update claims
+		claims.Email = cachedUser.Email
+		claims.Name = cachedUser.Name
+		claims.Role = cachedUser.Role
+		return claims, nil
+	}
+
+	// Not found in cache, fallback to database
 	user, err := userRepo.GetByID(ctx, claims.UserID)
 	if err != nil {
-		// fmt.Printf("User validation failed: %v\n", err)
 		return nil, errors.New("user not found or account has been deactivated")
 	}
 
-	// Update claims with fresh data from database (in case role or other info changed)
+	// Update claims with fresh data from database
 	claims.Email = user.Email
 	claims.Name = user.Name
 	claims.Role = user.Role
 
-	// fmt.Printf("Token validated with database successfully for user: %s\n", user.Email)
+	// Cache the user for future requests
+	cfg := config.LoadConfig()
+	expirationDuration, _ := time.ParseDuration(cfg.JWT.ExpiresIn)
+	if expirationDuration == 0 {
+		expirationDuration = 24 * time.Hour
+	}
+	_ = cache.SetUser(ctx, user, expirationDuration)
+
 	return claims, nil
 }
 

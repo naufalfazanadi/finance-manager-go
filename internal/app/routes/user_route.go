@@ -9,8 +9,8 @@ import (
 // UserRoutes handles user-related routes using centralized dependencies
 func UserRoutes(api fiber.Router, dependencies *container.ServiceContainer) {
 	// Get handlers and middleware from centralized container
-	authMiddleware := dependencies.GetAuthMiddleware()
-	userHandler := dependencies.GetUserHandler()
+	authMiddleware := dependencies.AuthMiddleware
+	userHandler := dependencies.UserHandler
 
 	// User routes
 	v1 := api.Group("/v1")
