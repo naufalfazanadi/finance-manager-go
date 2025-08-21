@@ -53,6 +53,11 @@ func NewPostgresDB(dbConfig config.DatabaseConfig) *gorm.DB {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
+	// Create or update the monthly_transaction_summary view
+	if err := entities.MigrateVMonthlyTransactionSumView(db); err != nil {
+		log.Fatal("Failed to create monthly_transaction_summary view:", err)
+	}
+
 	log.Printf("Database connected successfully with connection pool (MaxOpen: %d, MaxIdle: %d, MaxLifetime: %dm)",
 		dbConfig.MaxOpenConns, dbConfig.MaxIdleConns, dbConfig.ConnMaxLifetime)
 	return db

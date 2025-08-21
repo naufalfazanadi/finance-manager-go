@@ -23,6 +23,7 @@ type ServiceContainer struct {
 	UserRepo        repositories.UserRepository
 	WalletRepo      repositories.WalletRepository
 	TransactionRepo repositories.TransactionRepository
+	DashboardRepo   repositories.DashboardRepository
 
 	// Middleware
 	AuthMiddleware *middleware.AuthMiddleware
@@ -33,6 +34,7 @@ type ServiceContainer struct {
 	WalletUseCase      usecases.WalletUseCaseInterface
 	TransactionUseCase usecases.TransactionUseCaseInterface
 	BalanceSyncUseCase usecases.BalanceSyncUseCaseInterface
+	DashboardUseCase   usecases.DashboardUseCaseInterface
 
 	// Workers
 	CronWorker *worker.CronWorker
@@ -43,6 +45,7 @@ type ServiceContainer struct {
 	WalletHandler      *handlers.WalletHandler
 	TransactionHandler *handlers.TransactionHandler
 	WorkerHandler      *handlers.WorkerHandler
+	DashboardHandler   *handlers.DashboardHandler
 }
 
 // NewServiceContainer creates and initializes all application dependencies
@@ -67,6 +70,7 @@ func NewServiceContainer(db *gorm.DB, validator *validator.Validator) *ServiceCo
 	userRepo := repositories.NewUserRepository(db)
 	walletRepo := repositories.NewWalletRepository(db)
 	transactionRepo := repositories.NewTransactionRepository(db)
+	dashboardRepo := repositories.NewDashboardRepository(db)
 
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(userRepo)
@@ -77,6 +81,7 @@ func NewServiceContainer(db *gorm.DB, validator *validator.Validator) *ServiceCo
 	walletUseCase := usecases.NewWalletUseCase(walletRepo, userRepo)
 	transactionUseCase := usecases.NewTransactionUseCase(transactionRepo, walletRepo, userRepo, db)
 	balanceSyncUseCase := usecases.NewBalanceSyncUseCase(walletRepo, transactionRepo, db)
+	dashboardUseCase := usecases.NewDashboardUseCase(dashboardRepo)
 
 	// Initialize workers
 	cronWorker := worker.NewCronWorker(balanceSyncUseCase, db)
@@ -87,6 +92,7 @@ func NewServiceContainer(db *gorm.DB, validator *validator.Validator) *ServiceCo
 	walletHandler := handlers.NewWalletHandler(walletUseCase, validator)
 	transactionHandler := handlers.NewTransactionHandler(transactionUseCase, validator)
 	workerHandler := handlers.NewWorkerHandler(cronWorker)
+	dashboardHandler := handlers.NewDashboardHandler(dashboardUseCase, validator)
 
 	// Log successful service container initialization
 	logger.LogSuccess(
@@ -113,5 +119,6 @@ func NewServiceContainer(db *gorm.DB, validator *validator.Validator) *ServiceCo
 		WalletHandler:      walletHandler,
 		TransactionHandler: transactionHandler,
 		WorkerHandler:      workerHandler,
+		DashboardHandler:   dashboardHandler,
 	}
 }

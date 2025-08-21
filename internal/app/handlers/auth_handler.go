@@ -22,7 +22,7 @@ func NewAuthHandler(authUseCase usecases.AuthUseCaseInterface, validator *valida
 }
 
 // Register godoc
-// @Summary Register a new user
+// @Sum Register a new user
 // @Description Register a new user with email, name, password and birth date
 // @Tags auth
 // @Accept json
@@ -49,7 +49,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 }
 
 // Login godoc
-// @Summary Login user
+// @Sum Login user
 // @Description Login user with email and password
 // @Tags auth
 // @Accept json
@@ -76,7 +76,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 }
 
 // GetProfile godoc
-// @Summary Get user profile
+// @Sum Get user profile
 // @Description Get the profile of the authenticated user
 // @Tags auth
 // @Accept json
@@ -101,7 +101,7 @@ func (h *AuthHandler) GetProfile(c *fiber.Ctx) error {
 }
 
 // ChangePassword godoc
-// @Summary Change user password
+// @Sum Change user password
 // @Description Change password for the authenticated user
 // @Tags auth
 // @Accept json
@@ -134,7 +134,7 @@ func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
 }
 
 // ForgotPassword godoc
-// @Summary Request password reset
+// @Sum Request password reset
 // @Description Send password reset email to user
 // @Tags auth
 // @Accept json
@@ -162,7 +162,7 @@ func (h *AuthHandler) ForgotPassword(c *fiber.Ctx) error {
 }
 
 // ResetPassword godoc
-// @Summary Reset password with token
+// @Sum Reset password with token
 // @Description Reset user password using reset token
 // @Tags auth
 // @Accept json

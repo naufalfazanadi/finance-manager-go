@@ -55,6 +55,7 @@ func Setup(dependencies *container.ServiceContainer) *fiber.App {
 	WalletRoutes(api, dependencies)
 	TransactionRoutes(api, dependencies)
 	WorkerRoutes(api, dependencies)
+	DashboardRoutes(api, dependencies)
 
 	return app
 }

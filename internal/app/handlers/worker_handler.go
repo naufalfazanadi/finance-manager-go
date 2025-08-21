@@ -19,7 +19,7 @@ func NewWorkerHandler(cronWorker *worker.CronWorker) *WorkerHandler {
 }
 
 // GetWorkerStatus gets the current status of the worker
-// @Summary Get worker status
+// @Sum Get worker status
 // @Description Get the current status of the balance sync worker
 // @Tags Worker
 // @Accept json
@@ -39,7 +39,7 @@ func (h *WorkerHandler) GetWorkerStatus(c *fiber.Ctx) error {
 }
 
 // TriggerBalanceSync manually triggers balance sync for all wallets
-// @Summary Trigger balance sync
+// @Sum Trigger balance sync
 // @Description Manually trigger balance sync for all wallets
 // @Tags Worker
 // @Accept json

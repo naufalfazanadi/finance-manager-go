@@ -74,7 +74,10 @@ func GenerateToken(user *entities.User) (string, error) {
 	// Cache user data for faster lookups (optional, don't fail if error)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	_ = cache.SetUser(ctx, user, expirationDuration)
+
+	go func() {
+		_ = cache.SetUser(ctx, user, expirationDuration)
+	}()
 
 	return tokenString, nil
 }
@@ -85,7 +88,7 @@ func ValidateToken(tokenString string) (*JWTClaims, error) {
 
 	claims := &JWTClaims{}
 
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("invalid signing method")
 		}
@@ -142,7 +145,10 @@ func ValidateTokenWithDB(ctx context.Context, tokenString string, userRepo repos
 	if expirationDuration == 0 {
 		expirationDuration = 24 * time.Hour
 	}
-	_ = cache.SetUser(ctx, user, expirationDuration)
+
+	go func() {
+		_ = cache.SetUser(ctx, user, expirationDuration)
+	}()
 
 	return claims, nil
 }

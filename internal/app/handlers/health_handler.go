@@ -24,7 +24,7 @@ func NewHealthHandler(db *gorm.DB, minioClient minio.Client) *HealthHandler {
 }
 
 // CheckHealth performs overall health check
-// @Summary Basic health check
+// @Sum Basic health check
 // @Description Basic health check endpoint to verify service is running
 // @Tags health
 // @Accept json
@@ -41,7 +41,7 @@ func (h *HealthHandler) CheckHealth(c *fiber.Ctx) error {
 }
 
 // CheckDatabase performs database health check with connection stats
-// @Summary Database health check
+// @Sum Database health check
 // @Description Database health check with connection statistics
 // @Tags health
 // @Accept json
@@ -102,7 +102,7 @@ func (h *HealthHandler) CheckDatabase(c *fiber.Ctx) error {
 }
 
 // CheckMinio performs Minio health check
-// @Summary Minio health check
+// @Sum Minio health check
 // @Description Minio health check to verify storage service connectivity
 // @Tags health
 // @Accept json
@@ -207,7 +207,7 @@ func containsConnectionError(errStr string) bool {
 }
 
 // CheckAll performs comprehensive health check for all services
-// @Summary Comprehensive health check
+// @Sum Comprehensive health check
 // @Description Health check for all services including database and Minio
 // @Tags health
 // @Accept json

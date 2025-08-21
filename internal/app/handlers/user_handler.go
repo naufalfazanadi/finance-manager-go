@@ -25,7 +25,7 @@ func NewUserHandler(userUseCase usecases.UserUseCaseInterface, validator *valida
 }
 
 // CreateUser godoc
-// @Summary Create a new user
+// @Sum Create a new user
 // @Description Create a new user with email, name, password and optional profile photo using form data.
 // @Tags users
 // @Accept multipart/form-data
@@ -66,7 +66,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 }
 
 // GetUser godoc
-// @Summary Get user by ID
+// @Sum Get user by ID
 // @Description Get a user by their ID
 // @Tags users
 // @Accept json
@@ -115,7 +115,7 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 }
 
 // GetUsers godoc
-// @Summary Get all users
+// @Sum Get all users
 // @Description Get all users with pagination and filtering. Returns users array in data field and pagination info in meta field.
 // @Tags users
 // @Accept json
@@ -149,7 +149,7 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 }
 
 // UpdateUser godoc
-// @Summary Update user
+// @Sum Update user
 // @Description Update user information with optional profile photo using form data.
 // @Tags users
 // @Accept multipart/form-data
@@ -202,7 +202,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 }
 
 // DeleteUser godoc
-// @Summary Delete user by ID (soft delete)
+// @Sum Delete user by ID (soft delete)
 // @Description Soft delete a user by their ID (marks as deleted but keeps data)
 // @Tags users
 // @Accept json
@@ -234,7 +234,7 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 }
 
 // RestoreUser godoc
-// @Summary Restore soft deleted user by ID
+// @Sum Restore soft deleted user by ID
 // @Description Restore a soft deleted user by their ID
 // @Tags users
 // @Accept json
@@ -266,7 +266,7 @@ func (h *UserHandler) RestoreUser(c *fiber.Ctx) error {
 }
 
 // GetUsersWithDeleted godoc
-// @Summary Get all users including soft deleted ones
+// @Sum Get all users including soft deleted ones
 // @Description Get all users including those that have been soft deleted
 // @Tags users
 // @Accept json
@@ -301,7 +301,7 @@ func (h *UserHandler) GetUsersWithDeleted(c *fiber.Ctx) error {
 }
 
 // GetOnlyDeletedUsers godoc
-// @Summary Get only soft deleted users
+// @Sum Get only soft deleted users
 // @Description Get only users that have been soft deleted
 // @Tags users
 // @Accept json
@@ -336,7 +336,7 @@ func (h *UserHandler) GetOnlyDeletedUsers(c *fiber.Ctx) error {
 }
 
 // HardDeleteUser godoc
-// @Summary Permanently delete user by ID
+// @Sum Permanently delete user by ID
 // @Description Permanently delete a user by their ID (cannot be restored)
 // @Tags users
 // @Accept json

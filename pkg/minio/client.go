@@ -65,6 +65,14 @@ func NewClient() (Client, error) {
 		return nil, err
 	}
 
+	// Health check: try to list buckets to ensure MinIO server is reachable
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err = cl.ListBuckets(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// Initialize policy condition config.
 	policy := minio.NewPostPolicy()
 
